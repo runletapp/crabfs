@@ -4,14 +4,19 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
+	"time"
 
 	"gitlab.com/runletapp/crabfs"
+	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-func nodeStart(bootstrapAddr string) {
+func nodeStart(discoveryKey string, bootstrapAddr string, mountLocation string) {
 	ctx := context.Background()
 
-	fs, err := crabfs.NewWithContext(ctx, "tmp/mount", "test")
+	tmpfs := memfs.New()
+
+	fs, err := crabfs.NewWithContext(ctx, "exampleBkt", mountLocation, discoveryKey, 0, tmpfs)
 	if err != nil {
 		panic(err)
 	}
@@ -19,9 +24,41 @@ func nodeStart(bootstrapAddr string) {
 		panic(err)
 	}
 
+	if err := fs.Announce(); err != nil {
+		panic(err)
+	}
+
 	log.Printf("Host id: %s\n", fs.GetHostID())
 	for i, addr := range fs.GetAddrs() {
 		log.Printf("Host addr [%d]: %s\n", i, addr)
+	}
+
+	if mountLocation != "" {
+		go func() {
+			<-time.After(5 * time.Second)
+			log.Printf("Looking for: test.txt")
+			cid, err := fs.GetContentID(ctx, "test.txt")
+			if err != nil {
+				log.Printf("Error: %v", err)
+				return
+			}
+
+			log.Printf("Found: %v", cid.String())
+			log.Printf("Looking for providers of: %v", cid.String())
+
+			providers, err := fs.GetProviders(ctx, cid)
+			if err != nil {
+				log.Printf("Error: %v", err)
+				return
+			}
+
+			for i, addrs := range providers {
+				log.Printf("Provider: %d", i)
+				for ia, addr := range addrs {
+					log.Printf("Addr [%d]: %s", ia, addr)
+				}
+			}
+		}()
 	}
 
 	<-ctx.Done()
@@ -36,15 +73,20 @@ func relayStart() {
 	}
 
 	log.Printf("Relay id: %s\n", relay.GetID())
+	localAddr := ""
 	for i, addr := range relay.GetAddrs() {
 		log.Printf("Relay addr [%d]: %s\n", i, addr)
+		if strings.HasPrefix(addr, "/ip4/127") {
+			localAddr = addr
+		}
 	}
 
-	<-ctx.Done()
+	nodeStart("", localAddr, "")
 }
 
 func main() {
 	bootstrapPeer := flag.String("d", "", "bootstrap peer to dial")
+	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	relayFlag := flag.Bool("relay", false, "Start a relay instead of a node")
 	flag.Parse()
 
@@ -53,6 +95,6 @@ func main() {
 		relayStart()
 	} else {
 		log.Printf("Starting node...")
-		nodeStart(*bootstrapPeer)
+		nodeStart("example", *bootstrapPeer, *mountLocation)
 	}
 }

@@ -1,0 +1,15 @@
+#!/bin/bash
+PATH=./node_modules/.bin:$PATH
+
+function generateProtos {
+    protoc -I ./proto ./proto/*.proto --go_out=plugins=grpc:.
+}
+
+function help {
+    echo "$0 <task> <args>"
+    echo "Tasks:"
+    compgen -A function | cat -n
+}
+
+TIMEFORMAT="Task completed in %3lR"
+time ${@:-default}

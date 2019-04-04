@@ -1,10 +1,24 @@
 package crabfs
 
-import "context"
+import (
+	"context"
+	"log"
+
+	cid "github.com/ipfs/go-cid"
+	billy "gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/osfs"
+)
 
 // CrabFS struct
 type CrabFS struct {
-	MountPoint string
+	billy.Filesystem
+
+	tmpfs billy.Filesystem
+
+	BucketName string
+
+	mountLocation string
+	mountFS       billy.Filesystem
 
 	bootstrapPeers []string
 
@@ -16,22 +30,29 @@ type CrabFS struct {
 }
 
 // New creates a new CrabFS instance
-func New(mountPoint string, discoveryKey string) (*CrabFS, error) {
-	return NewWithContext(context.Background(), mountPoint, discoveryKey)
+func New(bucketName string, mountLocation string, discoveryKey string, port int, tmpfs billy.Filesystem) (*CrabFS, error) {
+	return NewWithContext(context.Background(), bucketName, mountLocation, discoveryKey, port, tmpfs)
 }
 
 // NewWithContext creates a new CrabFS instance with a context
-func NewWithContext(ctx context.Context, mountPoint string, discoveryKey string) (*CrabFS, error) {
+func NewWithContext(ctx context.Context, bucketName string, mountLocation string, discoveryKey string, port int, tmpfs billy.Filesystem) (*CrabFS, error) {
 	childCtx, cancel := context.WithCancel(ctx)
 
-	host, err := HostNew(ctx, 2525, discoveryKey)
+	host, err := HostNew(ctx, port, discoveryKey)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
+	mountFS := osfs.New(mountLocation)
+
 	fs := &CrabFS{
-		MountPoint: mountPoint,
+		tmpfs: tmpfs,
+
+		BucketName: bucketName,
+
+		mountLocation: mountLocation,
+		mountFS:       mountFS,
 
 		bootstrapPeers: []string{},
 
@@ -42,7 +63,7 @@ func NewWithContext(ctx context.Context, mountPoint string, discoveryKey string)
 		discoveryKey: discoveryKey,
 	}
 
-	go fs.waitForContext()
+	go fs.background()
 
 	return fs, nil
 }
@@ -53,7 +74,7 @@ func (fs *CrabFS) Close() error {
 	return nil
 }
 
-func (fs *CrabFS) waitForContext() {
+func (fs *CrabFS) background() {
 	<-fs.ctx.Done()
 	fs.Close()
 }
@@ -79,7 +100,106 @@ func (fs *CrabFS) Bootstrap(peers []string) error {
 	return nil
 }
 
+// PublishLocalFiles announce the local files to the network
+func (fs *CrabFS) PublishLocalFiles(dir string) (*cid.Cid, error) {
+	files, err := fs.mountFS.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	dirBlock, err := DirNew(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		var newCid *cid.Cid
+		if file.IsDir() {
+			newCid, err = fs.PublishLocalFiles(fs.mountFS.Join(dir, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+		} else {
+			newCid, err = fs.PublishFile(fs.mountFS.Join(dir, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		dirBlock.Children = append(dirBlock.Children, newCid)
+	}
+
+	_, err = dirBlock.CalcHash()
+	if err != nil {
+		return nil, err
+	}
+
+	cid := dirBlock.GetCID()
+
+	return &cid, fs.announceContentID(dir, &cid)
+}
+
+// PublishFile publishes 'filename' and returns the cid related to it
+func (fs *CrabFS) PublishFile(filename string) (*cid.Cid, error) {
+	file, err := fs.mountFS.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	fileBlock, err := FileNew(filename, file)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fileBlock.CalcHash()
+	if err != nil {
+		return nil, err
+	}
+
+	cid := fileBlock.GetCID()
+
+	return &cid, fs.announceContentID(filename, &cid)
+}
+
 // GetAddrs get the addresses that this node is bound to
 func (fs *CrabFS) GetAddrs() []string {
 	return fs.host.GetAddrs()
+}
+
+// Announce announce this host in the network
+func (fs *CrabFS) Announce() error {
+	err := fs.host.Announce()
+	if err != nil {
+		return err
+	}
+
+	return fs.AnnounceContent()
+}
+
+// AnnounceContent update the content root resolver
+func (fs *CrabFS) AnnounceContent() error {
+	baseCID, err := fs.PublishLocalFiles(".")
+	if err != nil {
+		return err
+	}
+
+	return fs.announceContentID("/", baseCID)
+}
+
+// announceContentID announce that we can provide the content id 'contentID'
+func (fs *CrabFS) announceContentID(pathName string, contentID *cid.Cid) error {
+	log.Printf("Add new cid for '%s': %v", pathName, contentID.String())
+
+	return fs.host.AnnounceContent(pathName, contentID)
+}
+
+// GetContentID resolves the pathName to a content id
+func (fs *CrabFS) GetContentID(ctx context.Context, pathName string) (*cid.Cid, error) {
+	return fs.host.GetContentID(ctx, pathName)
+}
+
+// GetProviders resolves the content id to a list of peers that provides that content
+func (fs *CrabFS) GetProviders(ctx context.Context, contentID *cid.Cid) ([][]string, error) {
+	return fs.host.GetProviders(ctx, contentID)
 }
