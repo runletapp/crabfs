@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"time"
@@ -17,10 +18,12 @@ import (
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
+	libp2pIfacePnet "github.com/libp2p/go-libp2p-interface-pnet"
 	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2pdhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
 	libp2pNet "github.com/libp2p/go-libp2p-net"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
+	libp2pPnet "github.com/libp2p/go-libp2p-pnet"
 	libp2pProtocol "github.com/libp2p/go-libp2p-protocol"
 	libp2pPubsub "github.com/libp2p/go-libp2p-pubsub"
 	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
@@ -45,16 +48,32 @@ type Host struct {
 	broadcastRouter *libp2pPubsub.PubSub
 
 	mountFS billy.Filesystem
+
+	swarmProtector libp2pIfacePnet.Protector
 }
 
 // HostNew creates a new host instance
-func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.Filesystem) (*Host, error) {
+func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.Filesystem, privateKey io.Reader) (*Host, error) {
+	var protector libp2pIfacePnet.Protector
+
+	if privateKey == nil {
+		protector = nil
+	} else {
+		var err error
+		protector, err = libp2pPnet.NewProtector(privateKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	host := &Host{
 		ctx:          ctx,
 		port:         port,
 		discoveryKey: discoveryKey,
 
 		mountFS: mountFS,
+
+		swarmProtector: protector,
 	}
 
 	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
@@ -67,10 +86,18 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 		return nil, err
 	}
 
-	p2pHost, err := libp2p.New(
-		ctx,
+	opts := []libp2p.Option{
 		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
 		libp2p.EnableRelay(libp2pCircuit.OptDiscovery),
+	}
+
+	if protector != nil {
+		opts = append(opts, libp2p.PrivateNetwork(protector))
+	}
+
+	p2pHost, err := libp2p.New(
+		ctx,
+		opts...,
 	)
 	if err != nil {
 		return nil, err

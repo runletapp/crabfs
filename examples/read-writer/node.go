@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -15,7 +16,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func nodeStart(ctx context.Context, discoveryKey string, bootstrapAddr string, mountFS billy.Filesystem) *crabfs.CrabFS {
+func nodeStart(ctx context.Context, discoveryKey string, bootstrapAddr string, mountFS billy.Filesystem, privateKey io.Reader) *crabfs.CrabFS {
 	// ctx, "exampleBkt", discoveryKey, 0,
 	fs, err := crabfs.New(
 		mountFS,
@@ -23,6 +24,7 @@ func nodeStart(ctx context.Context, discoveryKey string, bootstrapAddr string, m
 		options.BucketName("exampleBkt"),
 		options.DiscoveryKey(discoveryKey),
 		options.BootstrapPeers([]string{bootstrapAddr}),
+		options.PrivateKey(privateKey),
 	)
 	if err != nil {
 		panic(err)
@@ -118,25 +120,49 @@ func relayStart(ctx context.Context) {
 }
 
 func main() {
+	outputFile := flag.String("o", "", "Output file")
+	privatekeyFile := flag.String("p", "", "Output file")
 	discoveryKey := flag.String("k", "example", "discovery key")
 	bootstrapPeer := flag.String("d", "", "bootstrap peer to dial")
 	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	readFile := flag.String("q", "", "read file")
 	writeFile := flag.String("w", "", "write file")
-	relayFlag := flag.Bool("relay", false, "Start a relay instead of a node")
 	flag.Parse()
 
 	ctx := context.Background()
 
-	if *relayFlag {
-		log.Printf("Starting relay...")
-		relayStart(ctx)
-		<-ctx.Done()
+	if *outputFile != "" {
+		log.Printf("Generating new private key...")
+		file, err := os.Create(*outputFile)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		generator, err := crabfs.GenerateSwarmPrivateKey()
+		if err != nil {
+			panic(err)
+		}
+		_, err = io.Copy(file, generator)
+		if err != nil {
+			panic(err)
+		}
 		return
 	}
 
 	log.Printf("Starting node...")
-	fs := nodeStart(ctx, *discoveryKey, *bootstrapPeer, osfs.New(*mountLocation))
+
+	var psk io.Reader
+	if *privatekeyFile != "" {
+		pskFile, err := os.Open(*privatekeyFile)
+		if err != nil {
+			panic(err)
+		}
+		defer pskFile.Close()
+		psk = pskFile
+	}
+
+	fs := nodeStart(ctx, *discoveryKey, *bootstrapPeer, osfs.New(*mountLocation), psk)
 
 	if *readFile != "" {
 		reader(ctx, fs, *readFile)

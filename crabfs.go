@@ -66,7 +66,7 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 
 	childCtx, cancel := context.WithCancel(settings.Context)
 
-	host, err := HostNew(settings.Context, settings.Port, discoveryKeyHash, mountFS)
+	host, err := HostNew(settings.Context, settings.Port, discoveryKeyHash, mountFS, settings.PrivateKey)
 	if err != nil {
 		cancel()
 		return nil, err
