@@ -2,7 +2,18 @@ syntax = "proto3";
 
 package crabfs;
 
-message DHTNameRecord {
+message DHTNameRecordV1 {
     string timestamp = 1;
-    bytes contentID = 2;
+    bytes data = 2;
+    uint32 perm = 3;
+    int64 length = 4;
+    string mtime = 5;
+}
+
+message ProtocolRequest {
+    string timestamp = 1;
+    bytes cid = 2;
+    int64 offset = 3;
+    int64 length = 4;
+    string pathName = 5;
 }

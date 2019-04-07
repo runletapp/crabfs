@@ -20,66 +20,169 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type DHTNameRecord struct {
+type DHTNameRecordV1 struct {
 	Timestamp            string   `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	ContentID            []byte   `protobuf:"bytes,2,opt,name=contentID,proto3" json:"contentID,omitempty"`
+	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Perm                 uint32   `protobuf:"varint,3,opt,name=perm,proto3" json:"perm,omitempty"`
+	Length               int64    `protobuf:"varint,4,opt,name=length,proto3" json:"length,omitempty"`
+	Mtime                string   `protobuf:"bytes,5,opt,name=mtime,proto3" json:"mtime,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DHTNameRecord) Reset()         { *m = DHTNameRecord{} }
-func (m *DHTNameRecord) String() string { return proto.CompactTextString(m) }
-func (*DHTNameRecord) ProtoMessage()    {}
-func (*DHTNameRecord) Descriptor() ([]byte, []int) {
+func (m *DHTNameRecordV1) Reset()         { *m = DHTNameRecordV1{} }
+func (m *DHTNameRecordV1) String() string { return proto.CompactTextString(m) }
+func (*DHTNameRecordV1) ProtoMessage()    {}
+func (*DHTNameRecordV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_555bd8c177793206, []int{0}
 }
 
-func (m *DHTNameRecord) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_DHTNameRecord.Unmarshal(m, b)
+func (m *DHTNameRecordV1) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DHTNameRecordV1.Unmarshal(m, b)
 }
-func (m *DHTNameRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_DHTNameRecord.Marshal(b, m, deterministic)
+func (m *DHTNameRecordV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DHTNameRecordV1.Marshal(b, m, deterministic)
 }
-func (m *DHTNameRecord) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DHTNameRecord.Merge(m, src)
+func (m *DHTNameRecordV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DHTNameRecordV1.Merge(m, src)
 }
-func (m *DHTNameRecord) XXX_Size() int {
-	return xxx_messageInfo_DHTNameRecord.Size(m)
+func (m *DHTNameRecordV1) XXX_Size() int {
+	return xxx_messageInfo_DHTNameRecordV1.Size(m)
 }
-func (m *DHTNameRecord) XXX_DiscardUnknown() {
-	xxx_messageInfo_DHTNameRecord.DiscardUnknown(m)
+func (m *DHTNameRecordV1) XXX_DiscardUnknown() {
+	xxx_messageInfo_DHTNameRecordV1.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DHTNameRecord proto.InternalMessageInfo
+var xxx_messageInfo_DHTNameRecordV1 proto.InternalMessageInfo
 
-func (m *DHTNameRecord) GetTimestamp() string {
+func (m *DHTNameRecordV1) GetTimestamp() string {
 	if m != nil {
 		return m.Timestamp
 	}
 	return ""
 }
 
-func (m *DHTNameRecord) GetContentID() []byte {
+func (m *DHTNameRecordV1) GetData() []byte {
 	if m != nil {
-		return m.ContentID
+		return m.Data
 	}
 	return nil
 }
 
+func (m *DHTNameRecordV1) GetPerm() uint32 {
+	if m != nil {
+		return m.Perm
+	}
+	return 0
+}
+
+func (m *DHTNameRecordV1) GetLength() int64 {
+	if m != nil {
+		return m.Length
+	}
+	return 0
+}
+
+func (m *DHTNameRecordV1) GetMtime() string {
+	if m != nil {
+		return m.Mtime
+	}
+	return ""
+}
+
+type ProtocolRequest struct {
+	Timestamp            string   `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Cid                  []byte   `protobuf:"bytes,2,opt,name=cid,proto3" json:"cid,omitempty"`
+	Offset               int64    `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	Length               int64    `protobuf:"varint,4,opt,name=length,proto3" json:"length,omitempty"`
+	PathName             string   `protobuf:"bytes,5,opt,name=pathName,proto3" json:"pathName,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ProtocolRequest) Reset()         { *m = ProtocolRequest{} }
+func (m *ProtocolRequest) String() string { return proto.CompactTextString(m) }
+func (*ProtocolRequest) ProtoMessage()    {}
+func (*ProtocolRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_555bd8c177793206, []int{1}
+}
+
+func (m *ProtocolRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ProtocolRequest.Unmarshal(m, b)
+}
+func (m *ProtocolRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ProtocolRequest.Marshal(b, m, deterministic)
+}
+func (m *ProtocolRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProtocolRequest.Merge(m, src)
+}
+func (m *ProtocolRequest) XXX_Size() int {
+	return xxx_messageInfo_ProtocolRequest.Size(m)
+}
+func (m *ProtocolRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProtocolRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ProtocolRequest proto.InternalMessageInfo
+
+func (m *ProtocolRequest) GetTimestamp() string {
+	if m != nil {
+		return m.Timestamp
+	}
+	return ""
+}
+
+func (m *ProtocolRequest) GetCid() []byte {
+	if m != nil {
+		return m.Cid
+	}
+	return nil
+}
+
+func (m *ProtocolRequest) GetOffset() int64 {
+	if m != nil {
+		return m.Offset
+	}
+	return 0
+}
+
+func (m *ProtocolRequest) GetLength() int64 {
+	if m != nil {
+		return m.Length
+	}
+	return 0
+}
+
+func (m *ProtocolRequest) GetPathName() string {
+	if m != nil {
+		return m.PathName
+	}
+	return ""
+}
+
 func init() {
-	proto.RegisterType((*DHTNameRecord)(nil), "crabfs.DHTNameRecord")
+	proto.RegisterType((*DHTNameRecordV1)(nil), "crabfs.DHTNameRecordV1")
+	proto.RegisterType((*ProtocolRequest)(nil), "crabfs.ProtocolRequest")
 }
 
 func init() { proto.RegisterFile("common.proto", fileDescriptor_555bd8c177793206) }
 
 var fileDescriptor_555bd8c177793206 = []byte{
-	// 110 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x49, 0xce, 0xcf, 0xcd,
-	0xcd, 0xcf, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x4b, 0x2e, 0x4a, 0x4c, 0x4a, 0x2b,
-	0x56, 0xf2, 0xe6, 0xe2, 0x75, 0xf1, 0x08, 0xf1, 0x4b, 0xcc, 0x4d, 0x0d, 0x4a, 0x4d, 0xce, 0x2f,
-	0x4a, 0x11, 0x92, 0xe1, 0xe2, 0x2c, 0xc9, 0xcc, 0x4d, 0x2d, 0x2e, 0x49, 0xcc, 0x2d, 0x90, 0x60,
-	0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x08, 0x80, 0x64, 0x93, 0xf3, 0xf3, 0x4a, 0x52, 0xf3, 0x4a,
-	0x3c, 0x5d, 0x24, 0x98, 0x14, 0x18, 0x35, 0x78, 0x82, 0x10, 0x02, 0x49, 0x6c, 0x60, 0xb3, 0x8d,
-	0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x45, 0xec, 0xcd, 0x1d, 0x6b, 0x00, 0x00, 0x00,
+	// 214 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x90, 0xb1, 0x4a, 0x04, 0x31,
+	0x14, 0x45, 0x89, 0xd9, 0x1d, 0xdc, 0xc7, 0xca, 0x4a, 0x10, 0x09, 0x62, 0x11, 0xb6, 0x4a, 0x25,
+	0x88, 0xbf, 0x60, 0x61, 0x25, 0x12, 0xc4, 0x3e, 0x93, 0x79, 0xe3, 0x0c, 0x4c, 0x26, 0x31, 0x79,
+	0x7e, 0x82, 0xa5, 0xff, 0x2c, 0x89, 0x41, 0x2b, 0xb1, 0xbb, 0xe7, 0x16, 0x37, 0x27, 0x0f, 0xf6,
+	0x2e, 0x78, 0x1f, 0xd6, 0x9b, 0x98, 0x02, 0x05, 0xd1, 0xb9, 0x64, 0xfb, 0x31, 0x1f, 0x3f, 0x18,
+	0x1c, 0xee, 0x1f, 0x9e, 0x1f, 0xad, 0x47, 0x83, 0x2e, 0xa4, 0xe1, 0xe5, 0x56, 0x5c, 0xc3, 0x8e,
+	0x66, 0x8f, 0x99, 0xac, 0x8f, 0x92, 0x29, 0xa6, 0x77, 0xe6, 0xb7, 0x10, 0x02, 0x36, 0x83, 0x25,
+	0x2b, 0x4f, 0x14, 0xd3, 0x7b, 0x53, 0x73, 0xe9, 0x22, 0x26, 0x2f, 0xb9, 0x62, 0xfa, 0xcc, 0xd4,
+	0x2c, 0x2e, 0xa1, 0x5b, 0x70, 0x7d, 0xa5, 0x49, 0x6e, 0x14, 0xd3, 0xdc, 0x34, 0x12, 0x17, 0xb0,
+	0xf5, 0x65, 0x4d, 0x6e, 0xeb, 0xf2, 0x37, 0x1c, 0x3f, 0x19, 0x1c, 0x9e, 0x8a, 0x99, 0x0b, 0x8b,
+	0xc1, 0xb7, 0x77, 0xcc, 0xf4, 0x8f, 0xc7, 0x39, 0x70, 0x37, 0x0f, 0x4d, 0xa3, 0xc4, 0xf2, 0x62,
+	0x18, 0xc7, 0x8c, 0x54, 0x3d, 0xb8, 0x69, 0xf4, 0xa7, 0xc9, 0x15, 0x9c, 0x46, 0x4b, 0x53, 0xf9,
+	0x7b, 0x93, 0xf9, 0xe1, 0xbe, 0xab, 0x67, 0xba, 0xfb, 0x0a, 0x00, 0x00, 0xff, 0xff, 0x78, 0x10,
+	0xe4, 0x69, 0x36, 0x01, 0x00, 0x00,
 }

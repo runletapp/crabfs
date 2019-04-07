@@ -2,6 +2,7 @@ package crabfs
 
 import (
 	"io"
+	"time"
 
 	multihash "github.com/multiformats/go-multihash"
 
@@ -12,11 +13,8 @@ import (
 type BlockType int
 
 var (
-	// BlockTypeDIR directory type
-	BlockTypeDIR BlockType = 0x01
-
 	// BlockTypeFILE file type
-	BlockTypeFILE BlockType = 0x02
+	BlockTypeFILE BlockType = 0x01
 )
 
 // Block common object to be stored in the fs
@@ -36,6 +34,6 @@ func (block *Block) GetCID() cid.Cid {
 }
 
 // CalcHash return the current hash of the block
-func (block *Block) CalcHash() (multihash.Multihash, error) {
+func (block *Block) CalcHash(mtime *time.Time) (multihash.Multihash, error) {
 	return nil, io.EOF
 }

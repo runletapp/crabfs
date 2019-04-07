@@ -1,4 +1,4 @@
-module gitlab.com/runletapp/crabfs
+module github.com/runletapp/crabfs
 
 go 1.12
 
@@ -17,7 +17,9 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.0.1
 	github.com/libp2p/go-libp2p-pubsub-router v0.0.3
 	github.com/libp2p/go-libp2p-record v0.0.1
+	github.com/libp2p/go-libp2p-routing v0.0.1
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/multiformats/go-multihash v0.0.1
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	gopkg.in/src-d/go-billy.v4 v4.3.0
 )

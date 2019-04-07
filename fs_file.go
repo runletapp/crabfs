@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	multihash "github.com/multiformats/go-multihash"
+	"github.com/patrickmn/go-cache"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
@@ -16,10 +18,14 @@ type File struct {
 	billy.File
 
 	Size int64
+
+	OnFileClose func(file *File) error
+
+	hashCache *cache.Cache
 }
 
 // FileNew creates a new file wrapper
-func FileNew(filename string, underlyingFile billy.File) (*File, error) {
+func FileNew(filename string, underlyingFile billy.File, hashCache *cache.Cache) (*File, error) {
 	// Save the current position, so we can restore later
 	pos, err := underlyingFile.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -41,24 +47,46 @@ func FileNew(filename string, underlyingFile billy.File) (*File, error) {
 			name: filename,
 			Type: BlockTypeFILE,
 		},
-		File: underlyingFile,
-		Size: size,
+		File:      underlyingFile,
+		Size:      size,
+		hashCache: hashCache,
 	}, nil
 }
 
+func (file *File) getCacheKey(mtime *time.Time) string {
+	var mtimeKey string
+	if mtime != nil {
+		mtimeKey = mtime.UTC().Format(time.RFC3339)
+	}
+	return fmt.Sprintf("file-%s-%s", file.Name(), mtimeKey)
+}
+
 // CalcHash return the current hash of the block
-func (file *File) CalcHash() (multihash.Multihash, error) {
+func (file *File) CalcHash(mtime *time.Time) (multihash.Multihash, error) {
+	cacheKey := file.getCacheKey(mtime)
+
+	var hash multihash.Multihash
+
+	hashI, found := file.hashCache.Get(cacheKey)
+	if found {
+		hash = hashI.(multihash.Multihash)
+		file.mhash = hash
+		return hash, nil
+	}
+
 	buffer, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
 
-	hash, err := multihash.Sum(buffer, multihash.SHA3_256, -1)
+	hash, err = multihash.Sum(buffer, multihash.SHA3_256, -1)
 	if err != nil {
 		return nil, err
 	}
 
 	file.mhash = hash
+
+	file.hashCache.SetDefault(cacheKey, hash)
 
 	return hash, nil
 }
@@ -74,6 +102,11 @@ func (file *File) Write(p []byte) (int, error) {
 
 // Close close this file and submit changes
 func (file *File) Close() error {
+	if file.OnFileClose != nil {
+		err := file.OnFileClose(file)
+		return err
+	}
+
 	return file.File.Close()
 }
 

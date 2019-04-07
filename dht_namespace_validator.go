@@ -45,7 +45,12 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return err
 	}
 
-	_, err := cid.Cast(record.ContentID)
+	// Accept empty content id
+	if len(record.Data) == 0 {
+		return nil
+	}
+
+	_, err := cid.Cast(record.Data)
 	if err != nil {
 		return err
 	}

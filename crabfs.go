@@ -3,22 +3,32 @@ package crabfs
 import (
 	"context"
 	"log"
+	"os"
+	"path"
+	"sync"
+	"time"
 
 	cid "github.com/ipfs/go-cid"
+	multihash "github.com/multiformats/go-multihash"
 	billy "gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/osfs"
+
+	"github.com/patrickmn/go-cache"
+
+	libp2pRouting "github.com/libp2p/go-libp2p-routing"
+)
+
+var (
+	// ErrNotFound the request content id does not have providers
+	ErrNotFound = libp2pRouting.ErrNotFound
 )
 
 // CrabFS struct
 type CrabFS struct {
 	billy.Filesystem
 
-	tmpfs billy.Filesystem
-
 	BucketName string
 
-	mountLocation string
-	mountFS       billy.Filesystem
+	mountFS billy.Filesystem
 
 	bootstrapPeers []string
 
@@ -27,32 +37,41 @@ type CrabFS struct {
 
 	host         *Host
 	discoveryKey string
+
+	hashCache *cache.Cache
+
+	openedFileStreams      map[string]*StreamContext
+	openedFileStreamsMutex sync.RWMutex
 }
 
 // New creates a new CrabFS instance
-func New(bucketName string, mountLocation string, discoveryKey string, port int, tmpfs billy.Filesystem) (*CrabFS, error) {
-	return NewWithContext(context.Background(), bucketName, mountLocation, discoveryKey, port, tmpfs)
+func New(bucketName string, discoveryKey string, port int, mountFS billy.Filesystem) (*CrabFS, error) {
+	return NewWithContext(context.Background(), bucketName, discoveryKey, port, mountFS)
 }
 
 // NewWithContext creates a new CrabFS instance with a context
-func NewWithContext(ctx context.Context, bucketName string, mountLocation string, discoveryKey string, port int, tmpfs billy.Filesystem) (*CrabFS, error) {
+func NewWithContext(ctx context.Context, bucketName string, discoveryKey string, port int, mountFS billy.Filesystem) (*CrabFS, error) {
+	discoveryKeyMHash, err := multihash.Sum([]byte(discoveryKey), multihash.SHA3_256, -1)
+	if err != nil {
+		return nil, err
+	}
+	discoveryKeyHash := discoveryKeyMHash.String()
+	log.Printf("Hash string: %s", discoveryKeyHash)
+
 	childCtx, cancel := context.WithCancel(ctx)
 
-	host, err := HostNew(ctx, port, discoveryKey)
+	host, err := HostNew(ctx, port, discoveryKeyHash, mountFS)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
-	mountFS := osfs.New(mountLocation)
+	hashCache := cache.New(1*time.Hour, 1*time.Hour)
 
 	fs := &CrabFS{
-		tmpfs: tmpfs,
+		mountFS: mountFS,
 
 		BucketName: bucketName,
-
-		mountLocation: mountLocation,
-		mountFS:       mountFS,
 
 		bootstrapPeers: []string{},
 
@@ -60,7 +79,12 @@ func NewWithContext(ctx context.Context, bucketName string, mountLocation string
 		ctxCancel: cancel,
 
 		host:         host,
-		discoveryKey: discoveryKey,
+		discoveryKey: discoveryKeyHash,
+
+		hashCache: hashCache,
+
+		openedFileStreams:      make(map[string]*StreamContext),
+		openedFileStreamsMutex: sync.RWMutex{},
 	}
 
 	go fs.background()
@@ -101,63 +125,75 @@ func (fs *CrabFS) Bootstrap(peers []string) error {
 }
 
 // PublishLocalFiles announce the local files to the network
-func (fs *CrabFS) PublishLocalFiles(dir string) (*cid.Cid, error) {
+func (fs *CrabFS) PublishLocalFiles(ctx context.Context, dir string, verify bool) error {
 	files, err := fs.mountFS.ReadDir(dir)
 	if err != nil {
-		return nil, err
-	}
-
-	dirBlock, err := DirNew(dir)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, file := range files {
-		var newCid *cid.Cid
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if file.IsDir() {
-			newCid, err = fs.PublishLocalFiles(fs.mountFS.Join(dir, file.Name()))
+			err = fs.PublishLocalFiles(ctx, fs.mountFS.Join(dir, file.Name()), verify)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 		} else {
-			newCid, err = fs.PublishFile(fs.mountFS.Join(dir, file.Name()))
+			_, err = fs.PublishFile(ctx, fs.mountFS.Join(dir, file.Name()), verify)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-
-		dirBlock.Children = append(dirBlock.Children, newCid)
 	}
 
-	_, err = dirBlock.CalcHash()
-	if err != nil {
-		return nil, err
-	}
-
-	cid := dirBlock.GetCID()
-
-	return &cid, fs.announceContentID(dir, &cid)
+	return nil
 }
 
 // PublishFile publishes 'filename' and returns the cid related to it
-func (fs *CrabFS) PublishFile(filename string) (*cid.Cid, error) {
+func (fs *CrabFS) PublishFile(ctx context.Context, filename string, verify bool) (*cid.Cid, error) {
 	file, err := fs.mountFS.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	fileBlock, err := FileNew(filename, file)
+	fileBlock, err := FileNew(filename, file, fs.hashCache)
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+	defer fileBlock.Close()
+
+	stat, err := fs.mountFS.Stat(filename)
 	if err != nil {
 		return nil, err
 	}
+	mtime := stat.ModTime().UTC()
 
-	_, err = fileBlock.CalcHash()
+	_, err = fileBlock.CalcHash(&mtime)
 	if err != nil {
 		return nil, err
 	}
 
 	cid := fileBlock.GetCID()
+
+	if verify {
+		upstreamRecord, err := fs.GetContentRecord(ctx, filename)
+		if err != nil && err != ErrNotFound {
+			return nil, err
+		} else if err == nil {
+			upstreamCid := upstreamRecord.ContentID
+			if !upstreamCid.Equals(cid) {
+				// File contents difer, since we are not updating, restore the file to the upstream version
+				if err := fs.mountFS.Remove(filename); err != nil {
+					return nil, err
+				}
+				return upstreamCid, nil
+			}
+		}
+	}
 
 	return &cid, fs.announceContentID(filename, &cid)
 }
@@ -168,38 +204,149 @@ func (fs *CrabFS) GetAddrs() []string {
 }
 
 // Announce announce this host in the network
-func (fs *CrabFS) Announce() error {
+func (fs *CrabFS) Announce(ctx context.Context) error {
 	err := fs.host.Announce()
 	if err != nil {
 		return err
 	}
 
-	return fs.AnnounceContent()
+	return fs.AnnounceContent(ctx)
 }
 
 // AnnounceContent update the content root resolver
-func (fs *CrabFS) AnnounceContent() error {
-	baseCID, err := fs.PublishLocalFiles(".")
+func (fs *CrabFS) AnnounceContent(ctx context.Context) error {
+	err := fs.PublishLocalFiles(ctx, ".", true)
 	if err != nil {
 		return err
 	}
 
-	return fs.announceContentID("/", baseCID)
+	return nil
 }
 
 // announceContentID announce that we can provide the content id 'contentID'
 func (fs *CrabFS) announceContentID(pathName string, contentID *cid.Cid) error {
-	log.Printf("Add new cid for '%s': %v", pathName, contentID.String())
+	stat, err := fs.mountFS.Stat(pathName)
+	if err != nil {
+		return err
+	}
 
-	return fs.host.AnnounceContent(pathName, contentID)
+	record := &DHTNameRecord{
+		DHTNameRecordV1: DHTNameRecordV1{
+			Perm:   uint32(stat.Mode().Perm()),
+			Length: stat.Size(),
+			Mtime:  stat.ModTime().UTC().Format(time.RFC3339),
+		},
+	}
+
+	return fs.host.AnnounceContent(pathName, contentID, record)
 }
 
-// GetContentID resolves the pathName to a content id
-func (fs *CrabFS) GetContentID(ctx context.Context, pathName string) (*cid.Cid, error) {
-	return fs.host.GetContentID(ctx, pathName)
+// GetContentRecord resolves the pathName to a content id
+func (fs *CrabFS) GetContentRecord(ctx context.Context, pathName string) (*DHTNameRecord, error) {
+	return fs.host.GetContentRecord(ctx, pathName)
 }
 
 // GetProviders resolves the content id to a list of peers that provides that content
 func (fs *CrabFS) GetProviders(ctx context.Context, contentID *cid.Cid) ([][]string, error) {
 	return fs.host.GetProviders(ctx, contentID)
+}
+
+// CreateFileStream create a reader to get data from the network
+func (fs *CrabFS) CreateFileStream(ctx context.Context, pathName string) (billy.File, error) {
+	fs.openedFileStreamsMutex.RLock()
+	defer fs.openedFileStreamsMutex.RUnlock()
+
+	if _, prs := fs.openedFileStreams[pathName]; prs {
+		return fs.mountFS.Open(pathName)
+	}
+
+	upstreamRecord, err := fs.GetContentRecord(ctx, pathName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := fs.mountFS.MkdirAll(path.Dir(pathName), 0755); err != nil {
+		return nil, err
+	}
+
+	tmpFile, err := fs.mountFS.Create(pathName)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		defer func() {
+			tmpFile.Close()
+
+			mtime, err := time.Parse(time.RFC3339, upstreamRecord.Mtime)
+			if err == nil {
+				fs.changeMtime(pathName, mtime)
+			}
+
+			fs.changePerm(pathName, upstreamRecord.Perm)
+		}()
+
+		streamCtx, streamCtxCancel := context.WithCancel(ctx)
+		defer streamCtxCancel()
+
+		fs.openedFileStreamsMutex.Lock()
+		fs.openedFileStreams[pathName] = &StreamContext{
+			Ctx:    streamCtx,
+			Cancel: streamCtxCancel,
+		}
+		fs.openedFileStreamsMutex.Unlock()
+
+		streamCh, err := fs.host.CreateStream(streamCtx, upstreamRecord.ContentID, pathName)
+		if err != nil {
+			return
+		}
+
+		BUFFERSIZE := 500 * 1024
+		data := make([]byte, BUFFERSIZE)
+
+		var totalRead int64
+
+	channelLoop:
+		for {
+			select {
+			case stream, ok := <-streamCh:
+				if !ok {
+					return
+				}
+
+				var totalChannelRead int64
+
+				for ctx.Err() == nil && totalChannelRead < stream.Length {
+					n, err := stream.Read(data)
+					if err != nil {
+						return
+					}
+
+					n, err = tmpFile.Write(data[:n])
+					if err != nil {
+						return
+					}
+
+					totalChannelRead += int64(n)
+					totalRead += int64(n)
+					if totalRead >= upstreamRecord.Length {
+						break channelLoop
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// We open a new file so we don't mess up file descriptors
+	return fs.mountFS.Open(tmpFile.Name())
+}
+
+func (fs *CrabFS) changeMtime(filename string, mtime time.Time) error {
+	return os.Chtimes(filename, mtime, mtime)
+}
+
+func (fs *CrabFS) changePerm(filename string, perm uint32) error {
+	return os.Chmod(filename, os.FileMode(perm))
 }
