@@ -10,6 +10,7 @@ import (
 
 	cid "github.com/ipfs/go-cid"
 	multihash "github.com/multiformats/go-multihash"
+	"github.com/runletapp/crabfs/options"
 	billy "gopkg.in/src-d/go-billy.v4"
 
 	"github.com/patrickmn/go-cache"
@@ -45,22 +46,27 @@ type CrabFS struct {
 }
 
 // New creates a new CrabFS instance
-func New(bucketName string, discoveryKey string, port int, mountFS billy.Filesystem) (*CrabFS, error) {
-	return NewWithContext(context.Background(), bucketName, discoveryKey, port, mountFS)
-}
+func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
+	var settings = &options.Settings{}
+	if err := settings.SetDefaults(); err != nil {
+		return nil, err
+	}
 
-// NewWithContext creates a new CrabFS instance with a context
-func NewWithContext(ctx context.Context, bucketName string, discoveryKey string, port int, mountFS billy.Filesystem) (*CrabFS, error) {
-	discoveryKeyMHash, err := multihash.Sum([]byte(discoveryKey), multihash.SHA3_256, -1)
+	for _, option := range opts {
+		if err := option(settings); err != nil {
+			return nil, err
+		}
+	}
+
+	discoveryKeyMHash, err := multihash.Sum([]byte(settings.DiscoveryKey), multihash.SHA3_256, -1)
 	if err != nil {
 		return nil, err
 	}
 	discoveryKeyHash := discoveryKeyMHash.String()
-	log.Printf("Hash string: %s", discoveryKeyHash)
 
-	childCtx, cancel := context.WithCancel(ctx)
+	childCtx, cancel := context.WithCancel(settings.Context)
 
-	host, err := HostNew(ctx, port, discoveryKeyHash, mountFS)
+	host, err := HostNew(settings.Context, settings.Port, discoveryKeyHash, mountFS)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -71,9 +77,9 @@ func NewWithContext(ctx context.Context, bucketName string, discoveryKey string,
 	fs := &CrabFS{
 		mountFS: mountFS,
 
-		BucketName: bucketName,
+		BucketName: settings.BucketName,
 
-		bootstrapPeers: []string{},
+		bootstrapPeers: settings.BootstrapPeers,
 
 		ctx:       childCtx,
 		ctxCancel: cancel,
@@ -87,7 +93,9 @@ func NewWithContext(ctx context.Context, bucketName string, discoveryKey string,
 		openedFileStreamsMutex: sync.RWMutex{},
 	}
 
-	go fs.background()
+	if !settings.RelayOnly {
+		go fs.background()
+	}
 
 	return fs, nil
 }
@@ -99,6 +107,17 @@ func (fs *CrabFS) Close() error {
 }
 
 func (fs *CrabFS) background() {
+	if err := fs.bootstrap(); err != nil {
+		log.Printf("Bootstrap error: %v", err)
+	}
+
+	// Wait a bit after bootstraping
+	<-time.After(500 * time.Millisecond)
+
+	if err := fs.announce(); err != nil {
+		log.Printf("Announce error: %v", err)
+	}
+
 	<-fs.ctx.Done()
 	fs.Close()
 }
@@ -113,11 +132,10 @@ func (fs *CrabFS) GetHostID() string {
 	return fs.host.GetID()
 }
 
-// Bootstrap batch connect to each peer in peers
-func (fs *CrabFS) Bootstrap(peers []string) error {
-	for _, addr := range peers {
+func (fs *CrabFS) bootstrap() error {
+	for _, addr := range fs.bootstrapPeers {
 		if err := fs.host.ConnectToPeer(addr); err != nil {
-			return err
+			log.Printf("Could not connect: %v", err)
 		}
 	}
 
@@ -203,18 +221,16 @@ func (fs *CrabFS) GetAddrs() []string {
 	return fs.host.GetAddrs()
 }
 
-// Announce announce this host in the network
-func (fs *CrabFS) Announce(ctx context.Context) error {
+func (fs *CrabFS) announce() error {
 	err := fs.host.Announce()
 	if err != nil {
 		return err
 	}
 
-	return fs.AnnounceContent(ctx)
+	return fs.announceContent(fs.ctx)
 }
 
-// AnnounceContent update the content root resolver
-func (fs *CrabFS) AnnounceContent(ctx context.Context) error {
+func (fs *CrabFS) announceContent(ctx context.Context) error {
 	err := fs.PublishLocalFiles(ctx, ".", true)
 	if err != nil {
 		return err

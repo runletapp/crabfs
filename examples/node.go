@@ -5,8 +5,9 @@ import (
 	"flag"
 	"log"
 	"os"
-	"strings"
 	"time"
+
+	"github.com/runletapp/crabfs/options"
 
 	"gopkg.in/src-d/go-billy.v4/osfs"
 
@@ -15,11 +16,15 @@ import (
 )
 
 func nodeStart(ctx context.Context, discoveryKey string, bootstrapAddr string, mountFS billy.Filesystem) *crabfs.CrabFS {
-	fs, err := crabfs.NewWithContext(ctx, "exampleBkt", discoveryKey, 0, mountFS)
+	// ctx, "exampleBkt", discoveryKey, 0,
+	fs, err := crabfs.New(
+		mountFS,
+		options.Context(ctx),
+		options.BucketName("exampleBkt"),
+		options.DiscoveryKey(discoveryKey),
+		options.BootstrapPeers([]string{bootstrapAddr}),
+	)
 	if err != nil {
-		panic(err)
-	}
-	if err := fs.Bootstrap([]string{bootstrapAddr}); err != nil {
 		panic(err)
 	}
 
@@ -101,23 +106,15 @@ func writer(ctx context.Context, fs *crabfs.CrabFS, filename string) {
 }
 
 func relayStart(ctx context.Context) {
-	relay, err := crabfs.RelayNew(ctx, 1717)
+	relay, err := crabfs.RelayNew(ctx, 1717, []string{})
 	if err != nil {
 		panic(err)
 	}
 
-	log.Printf("Relay id: %s\n", relay.GetID())
-	localAddr := ""
+	log.Printf("Relay id: %s\n", relay.GetRelayID())
 	for i, addr := range relay.GetAddrs() {
 		log.Printf("Relay addr [%d]: %s\n", i, addr)
-		if strings.HasPrefix(addr, "/ip4/127") {
-			localAddr = addr
-		}
 	}
-
-	mountFS := osfs.New("/tmp")
-
-	nodeStart(ctx, "", localAddr, mountFS)
 }
 
 func main() {
@@ -140,10 +137,6 @@ func main() {
 
 	log.Printf("Starting node...")
 	fs := nodeStart(ctx, *discoveryKey, *bootstrapPeer, osfs.New(*mountLocation))
-
-	if err := fs.Announce(ctx); err != nil {
-		panic(err)
-	}
 
 	if *readFile != "" {
 		reader(ctx, fs, *readFile)

@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
@@ -100,8 +99,6 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 }
 
 func (host *Host) handleStreamV1(stream libp2pNet.Stream) {
-	log.Printf("Got a stream!")
-
 	defer stream.Close()
 
 	data, err := ioutil.ReadAll(stream)
