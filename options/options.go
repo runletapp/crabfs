@@ -15,7 +15,7 @@ type Settings struct {
 	BootstrapPeers []string
 	RelayOnly      bool
 
-	PrivateKey io.Reader
+	SwarmKey io.Reader
 }
 
 // Option represents a single init option
@@ -31,7 +31,7 @@ func (s *Settings) SetDefaults() error {
 	s.DiscoveryKey = "crabfs"
 	s.Port = 0
 	s.RelayOnly = false
-	s.PrivateKey = nil
+	s.SwarmKey = nil
 
 	// use ipfs default peers
 	s.BootstrapPeers = DefaultBootstrapPeers
@@ -95,19 +95,19 @@ func RelayOnly(relayOnly bool) Option {
 	}
 }
 
-// PrivateKey option
-func PrivateKey(reader io.Reader) Option {
+// SwarmKey option
+func SwarmKey(reader io.Reader) Option {
 	return func(s *Settings) error {
-		s.PrivateKey = reader
+		s.SwarmKey = reader
 		return nil
 	}
 }
 
-// PrivateKeyFromBytes option
-func PrivateKeyFromBytes(privateKey []byte) Option {
+// SwarmKeyFromBytes option
+func SwarmKeyFromBytes(privateKey []byte) Option {
 	return func(s *Settings) error {
 		r := bytes.NewReader(privateKey)
-		s.PrivateKey = r
+		s.SwarmKey = r
 		return nil
 	}
 }

@@ -3,11 +3,15 @@ module github.com/runletapp/crabfs
 go 1.12
 
 require (
+	github.com/davidlazar/go-crypto v0.0.0-20170701192655-dcfb0a7ac018
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.0
 	github.com/ipfs/go-cid v0.0.1
+	github.com/ipfs/go-datastore v0.0.1
+	github.com/libp2p/go-buffer-pool v0.0.1
 	github.com/libp2p/go-libp2p v0.0.3
 	github.com/libp2p/go-libp2p-circuit v0.0.1
+	github.com/libp2p/go-libp2p-crypto v0.0.1
 	github.com/libp2p/go-libp2p-discovery v0.0.1
 	github.com/libp2p/go-libp2p-host v0.0.1
 	github.com/libp2p/go-libp2p-interface-pnet v0.0.1

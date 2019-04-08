@@ -9,7 +9,6 @@ import (
 	"time"
 
 	cid "github.com/ipfs/go-cid"
-	multihash "github.com/multiformats/go-multihash"
 	"github.com/runletapp/crabfs/options"
 	billy "gopkg.in/src-d/go-billy.v4"
 
@@ -36,7 +35,8 @@ type CrabFS struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	host         *Host
+	host *Host
+
 	discoveryKey string
 
 	hashCache *cache.Cache
@@ -58,15 +58,18 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 		}
 	}
 
-	discoveryKeyMHash, err := multihash.Sum([]byte(settings.DiscoveryKey), multihash.SHA3_256, -1)
-	if err != nil {
-		return nil, err
+	var swarmKey *[32]byte
+	if settings.SwarmKey != nil {
+		var err error
+		swarmKey, err = ReadSwarmKey(settings.SwarmKey)
+		if err != nil {
+			return nil, err
+		}
 	}
-	discoveryKeyHash := discoveryKeyMHash.String()
 
 	childCtx, cancel := context.WithCancel(settings.Context)
 
-	host, err := HostNew(settings.Context, settings.Port, discoveryKeyHash, mountFS, settings.PrivateKey)
+	host, err := HostNew(settings.Context, settings.Port, settings.DiscoveryKey, mountFS, swarmKey)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -84,8 +87,9 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 		ctx:       childCtx,
 		ctxCancel: cancel,
 
-		host:         host,
-		discoveryKey: discoveryKeyHash,
+		host: host,
+
+		discoveryKey: settings.DiscoveryKey,
 
 		hashCache: hashCache,
 

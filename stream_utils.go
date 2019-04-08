@@ -2,7 +2,13 @@ package crabfs
 
 import (
 	"context"
+	"errors"
 	"io"
+)
+
+var (
+	// ErrInvalidPrivateKey ...
+	ErrInvalidPrivateKey = errors.New("Invalid private key")
 )
 
 // StreamSlice represents a stream that will resolve to a slice of data determined by Offset and Length

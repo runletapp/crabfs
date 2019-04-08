@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/runletapp/crabfs/cryptostream"
+
 	"github.com/golang/protobuf/proto"
 	billy "gopkg.in/src-d/go-billy.v4"
 
@@ -18,14 +20,11 @@ import (
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
-	libp2pIfacePnet "github.com/libp2p/go-libp2p-interface-pnet"
 	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2pdhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
 	libp2pNet "github.com/libp2p/go-libp2p-net"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
-	libp2pPnet "github.com/libp2p/go-libp2p-pnet"
 	libp2pProtocol "github.com/libp2p/go-libp2p-protocol"
-	libp2pPubsub "github.com/libp2p/go-libp2p-pubsub"
 	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/multiformats/go-multiaddr"
 	multihash "github.com/multiformats/go-multihash"
@@ -42,38 +41,35 @@ type Host struct {
 
 	port int
 
-	p2pHost         libp2pHost.Host
-	dht             *libp2pdht.IpfsDHT
-	discoveryKey    string
-	broadcastRouter *libp2pPubsub.PubSub
+	p2pHost libp2pHost.Host
+	dht     *libp2pdht.IpfsDHT
+
+	discoveryKey     string
+	discoveryKeyHash string
 
 	mountFS billy.Filesystem
 
-	swarmProtector libp2pIfacePnet.Protector
+	swarmKey *[32]byte
 }
 
 // HostNew creates a new host instance
-func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.Filesystem, privateKey io.Reader) (*Host, error) {
-	var protector libp2pIfacePnet.Protector
-
-	if privateKey == nil {
-		protector = nil
-	} else {
-		var err error
-		protector, err = libp2pPnet.NewProtector(privateKey)
-		if err != nil {
-			return nil, err
-		}
+func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.Filesystem, swarmKey *[32]byte) (*Host, error) {
+	discoveryKeyMHash, err := multihash.Sum([]byte(discoveryKey), multihash.SHA3_256, -1)
+	if err != nil {
+		return nil, err
 	}
+	discoveryKeyHash := discoveryKeyMHash.String()
 
 	host := &Host{
-		ctx:          ctx,
-		port:         port,
-		discoveryKey: discoveryKey,
+		ctx:  ctx,
+		port: port,
+
+		discoveryKey:     discoveryKey,
+		discoveryKeyHash: discoveryKeyHash,
 
 		mountFS: mountFS,
 
-		swarmProtector: protector,
+		swarmKey: swarmKey,
 	}
 
 	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
@@ -91,10 +87,6 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 		libp2p.EnableRelay(libp2pCircuit.OptDiscovery),
 	}
 
-	if protector != nil {
-		opts = append(opts, libp2p.PrivateNetwork(protector))
-	}
-
 	p2pHost, err := libp2p.New(
 		ctx,
 		opts...,
@@ -106,7 +98,7 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 	// Configure peer discovery and key validator
 	dhtValidator := libp2pdhtOptions.NamespacedValidator(
 		"crabfs",
-		DHTNamespaceValidatorNew(discoveryKey),
+		DHTNamespaceValidatorNew(discoveryKeyHash),
 	)
 	dht, err := libp2pdht.New(ctx, p2pHost, dhtValidator)
 	if err != nil {
@@ -125,7 +117,19 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 	return host, nil
 }
 
-func (host *Host) handleStreamV1(stream libp2pNet.Stream) {
+func (host *Host) handleStreamV1(rawStream libp2pNet.Stream) {
+	var stream io.ReadWriteCloser
+	if host.swarmKey == nil {
+		stream = rawStream
+	} else {
+		var err error
+		stream, err = cryptostream.New(host.swarmKey, rawStream)
+		if err != nil {
+			rawStream.Close()
+			return
+		}
+	}
+
 	defer stream.Close()
 
 	data, err := ioutil.ReadAll(stream)
@@ -197,7 +201,7 @@ func (host *Host) handleStreamV1(stream libp2pNet.Stream) {
 	}
 }
 
-func (host *Host) sendMessageToStream(stream libp2pNet.Stream, message proto.Message) (int, error) {
+func (host *Host) sendMessageToStream(stream io.Writer, message proto.Message) (int, error) {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		return 0, err
@@ -253,7 +257,7 @@ func (host *Host) pathNameToKey(name string) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("/crabfs/%s/%s", host.discoveryKey, nameHash.String()), nil
+	return fmt.Sprintf("/crabfs/%s/%s", host.discoveryKeyHash, nameHash.String()), nil
 }
 
 // AnnounceContent announce that we can provide the content id 'contentID'
@@ -360,9 +364,21 @@ func (host *Host) CreateStream(ctx context.Context, contentID *cid.Cid, pathName
 	go func() {
 		defer close(streamChan)
 		for _, peer := range peerInfoList {
-			stream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
+			rawStream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
 			if err != nil {
 				continue
+			}
+
+			var stream io.ReadWriteCloser
+
+			if host.swarmKey == nil {
+				stream = rawStream
+			} else {
+				var err error
+				stream, err = cryptostream.New(host.swarmKey, rawStream)
+				if err != nil {
+					continue
+				}
 			}
 
 			request := ProtocolRequest{
