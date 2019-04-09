@@ -10,12 +10,11 @@ import (
 type Settings struct {
 	Context        context.Context
 	BucketName     string
-	DiscoveryKey   string
 	Port           int
 	BootstrapPeers []string
 	RelayOnly      bool
 
-	SwarmKey io.Reader
+	PrivateKey io.Reader
 }
 
 // Option represents a single init option
@@ -28,10 +27,9 @@ var DefaultBootstrapPeers = []string{}
 func (s *Settings) SetDefaults() error {
 	s.Context = context.Background()
 	s.BucketName = "crabfs"
-	s.DiscoveryKey = "crabfs"
 	s.Port = 0
 	s.RelayOnly = false
-	s.SwarmKey = nil
+	s.PrivateKey = nil
 
 	// use ipfs default peers
 	s.BootstrapPeers = DefaultBootstrapPeers
@@ -63,14 +61,6 @@ func BucketName(name string) Option {
 	}
 }
 
-// DiscoveryKey option
-func DiscoveryKey(key string) Option {
-	return func(s *Settings) error {
-		s.DiscoveryKey = key
-		return nil
-	}
-}
-
 // BootstrapPeers option
 func BootstrapPeers(peers []string) Option {
 	return func(s *Settings) error {
@@ -95,19 +85,19 @@ func RelayOnly(relayOnly bool) Option {
 	}
 }
 
-// SwarmKey option
-func SwarmKey(reader io.Reader) Option {
+// PrivateKey option
+func PrivateKey(reader io.Reader) Option {
 	return func(s *Settings) error {
-		s.SwarmKey = reader
+		s.PrivateKey = reader
 		return nil
 	}
 }
 
-// SwarmKeyFromBytes option
-func SwarmKeyFromBytes(privateKey []byte) Option {
+// PrivateKeyFromBytes option
+func PrivateKeyFromBytes(privateKey []byte) Option {
 	return func(s *Settings) error {
 		r := bytes.NewReader(privateKey)
-		s.SwarmKey = r
+		s.PrivateKey = r
 		return nil
 	}
 }

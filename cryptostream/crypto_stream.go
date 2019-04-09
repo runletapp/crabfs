@@ -9,8 +9,10 @@ import (
 
 	salsa20 "github.com/davidlazar/go-crypto/salsa20"
 	pool "github.com/libp2p/go-buffer-pool"
+	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	libp2pNet "github.com/libp2p/go-libp2p-net"
+	"github.com/multiformats/go-multihash"
 )
 
 // we are using buffer pool as user needs their slice back
@@ -75,16 +77,30 @@ func (c *CryptoStream) Write(in []byte) (int, error) {
 var _ io.ReadWriteCloser = (*CryptoStream)(nil)
 
 // New creates a new crypto channel
-func New(psk *[32]byte, insecure libp2pNet.Stream) (io.ReadWriteCloser, error) {
+func New(privateKey *libp2pCrypto.RsaPrivateKey, insecure libp2pNet.Stream) (io.ReadWriteCloser, error) {
 	if insecure == nil {
 		return nil, errInsecureNil
 	}
-	if psk == nil {
+	if privateKey == nil {
 		return nil, errPSKNil
 	}
+
+	var psk [32]byte
+
+	data, err := privateKey.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
+	if err != nil {
+		return nil, err
+	}
+	copy(psk[:], []byte(pskHash.String())[:32])
+
 	return &CryptoStream{
 		rawStream: insecure,
-		psk:       psk,
+		psk:       &psk,
 	}, nil
 }
 

@@ -2,6 +2,7 @@ package crabfs
 
 import (
 	"context"
+	"crypto/rand"
 	"log"
 	"os"
 	"path"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
+	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pRouting "github.com/libp2p/go-libp2p-routing"
 )
 
@@ -30,14 +32,14 @@ type CrabFS struct {
 
 	mountFS billy.Filesystem
 
+	privateKey *libp2pCrypto.RsaPrivateKey
+
 	bootstrapPeers []string
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
 	host *Host
-
-	discoveryKey string
 
 	hashCache *cache.Cache
 
@@ -58,10 +60,16 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 		}
 	}
 
-	var swarmKey *[32]byte
-	if settings.SwarmKey != nil {
-		var err error
-		swarmKey, err = ReadSwarmKey(settings.SwarmKey)
+	var privateKey *libp2pCrypto.RsaPrivateKey
+	var err error
+	if settings.PrivateKey == nil {
+		privKey, _, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		privateKey = privKey.(*libp2pCrypto.RsaPrivateKey)
+	} else {
+		privateKey, err = ReadPrivateKey(settings.PrivateKey)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +77,7 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 
 	childCtx, cancel := context.WithCancel(settings.Context)
 
-	host, err := HostNew(settings.Context, settings.Port, settings.DiscoveryKey, mountFS, swarmKey)
+	host, err := HostNew(settings.Context, settings.Port, privateKey, mountFS)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -82,14 +90,14 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 
 		BucketName: settings.BucketName,
 
+		privateKey: privateKey,
+
 		bootstrapPeers: settings.BootstrapPeers,
 
 		ctx:       childCtx,
 		ctxCancel: cancel,
 
 		host: host,
-
-		discoveryKey: settings.DiscoveryKey,
 
 		hashCache: hashCache,
 

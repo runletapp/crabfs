@@ -2,39 +2,44 @@ package crabfs
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	cid "github.com/ipfs/go-cid"
+	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
 )
 
+// SwarmPublicKeyResolver resolver type to be used with DHTNamespacePKValidator
+type SwarmPublicKeyResolver func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error)
+
 // DHTNamespaceValidatorNew creates a new validator that validates for all versions
-func DHTNamespaceValidatorNew(discoveryKey string) libp2pRecord.Validator {
+func DHTNamespaceValidatorNew(ctx context.Context, pkResolver SwarmPublicKeyResolver) libp2pRecord.Validator {
 	return DHTNamespaceValidatorV1{
-		discoveryKey: discoveryKey,
+		ctx:        ctx,
+		pkResolver: pkResolver,
 	}
 }
 
 // DHTNamespaceValidatorV1 validates the /crabfs keys on the dht datastore
 type DHTNamespaceValidatorV1 struct {
-	discoveryKey string
+	ctx        context.Context
+	pkResolver SwarmPublicKeyResolver
 }
 
 // Validate validates the given record, returning an error if it's
 // invalid (e.g., expired, signed by the wrong key, etc.).
 func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) error {
-	if !strings.HasPrefix(key, fmt.Sprintf("/crabfs/%s/", validator.discoveryKey)) {
-		return fmt.Errorf("Invalid key")
-	}
-
 	parts := strings.Split(key, "/")
 
 	if len(parts) != 4 {
 		return fmt.Errorf("Invalid key")
 	}
+
+	pkHash := parts[2]
 
 	var record DHTNameRecord
 	if err := proto.Unmarshal(value, &record); err != nil {
@@ -45,12 +50,29 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return err
 	}
 
+	if len(record.Signature) == 0 {
+		return fmt.Errorf("Invalid key")
+	}
+
 	// Accept empty content id
 	if len(record.Data) == 0 {
 		return nil
 	}
 
-	_, err := cid.Cast(record.Data)
+	publicKey, err := validator.pkResolver(validator.ctx, pkHash)
+	if err != nil {
+		return err
+	}
+
+	check, err := publicKey.Verify(record.Data, record.Signature)
+	if err != nil {
+		return err
+	}
+	if !check {
+		return fmt.Errorf("Invalid key")
+	}
+
+	_, err = cid.Cast(record.Data)
 	if err != nil {
 		return err
 	}

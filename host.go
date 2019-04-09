@@ -18,6 +18,7 @@ import (
 	cid "github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
+	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
 	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
@@ -44,32 +45,39 @@ type Host struct {
 	p2pHost libp2pHost.Host
 	dht     *libp2pdht.IpfsDHT
 
-	discoveryKey     string
-	discoveryKeyHash string
+	privateKey *libp2pCrypto.RsaPrivateKey
+
+	publicKeyData []byte
+	publicKeyHash string
 
 	mountFS billy.Filesystem
-
-	swarmKey *[32]byte
 }
 
 // HostNew creates a new host instance
-func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.Filesystem, swarmKey *[32]byte) (*Host, error) {
-	discoveryKeyMHash, err := multihash.Sum([]byte(discoveryKey), multihash.SHA3_256, -1)
+func HostNew(ctx context.Context, port int, privateKey *libp2pCrypto.RsaPrivateKey, mountFS billy.Filesystem) (*Host, error) {
+	if privateKey == nil {
+		return nil, ErrInvalidPrivateKey
+	}
+
+	publicKeyData, err := libp2pCrypto.MarshalRsaPublicKey(privateKey.GetPublic().(*libp2pCrypto.RsaPublicKey))
 	if err != nil {
 		return nil, err
 	}
-	discoveryKeyHash := discoveryKeyMHash.String()
+	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
+	if err != nil {
+		return nil, err
+	}
 
 	host := &Host{
 		ctx:  ctx,
 		port: port,
 
-		discoveryKey:     discoveryKey,
-		discoveryKeyHash: discoveryKeyHash,
+		privateKey: privateKey,
+
+		publicKeyHash: publicKeyHash.String(),
+		publicKeyData: publicKeyData,
 
 		mountFS: mountFS,
-
-		swarmKey: swarmKey,
 	}
 
 	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
@@ -98,9 +106,13 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 	// Configure peer discovery and key validator
 	dhtValidator := libp2pdhtOptions.NamespacedValidator(
 		"crabfs",
-		DHTNamespaceValidatorNew(discoveryKeyHash),
+		DHTNamespaceValidatorNew(ctx, host.getSwarmPublicKey),
 	)
-	dht, err := libp2pdht.New(ctx, p2pHost, dhtValidator)
+	dhtPKValidator := libp2pdhtOptions.NamespacedValidator(
+		"crabfs_pk",
+		DHTNamespacePKValidatorNew(),
+	)
+	dht, err := libp2pdht.New(ctx, p2pHost, dhtValidator, dhtPKValidator)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +131,11 @@ func HostNew(ctx context.Context, port int, discoveryKey string, mountFS billy.F
 
 func (host *Host) handleStreamV1(rawStream libp2pNet.Stream) {
 	var stream io.ReadWriteCloser
-	if host.swarmKey == nil {
+	if host.privateKey == nil {
 		stream = rawStream
 	} else {
 		var err error
-		stream, err = cryptostream.New(host.swarmKey, rawStream)
+		stream, err = cryptostream.New(host.privateKey, rawStream)
 		if err != nil {
 			rawStream.Close()
 			return
@@ -246,7 +258,11 @@ func (host *Host) GetAddrs() []string {
 // Announce announce this host in the network
 func (host *Host) Announce() error {
 	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
-	discovery.Advertise(host.ctx, routingDiscovery, host.discoveryKey)
+	discovery.Advertise(host.ctx, routingDiscovery, host.publicKeyHash)
+
+	if err := host.dht.PutValue(host.ctx, fmt.Sprintf("/crabfs_pk/%s", host.publicKeyHash), host.publicKeyData); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -257,7 +273,7 @@ func (host *Host) pathNameToKey(name string) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("/crabfs/%s/%s", host.discoveryKeyHash, nameHash.String()), nil
+	return fmt.Sprintf("/crabfs/%s/%s", host.publicKeyHash, nameHash.String()), nil
 }
 
 // AnnounceContent announce that we can provide the content id 'contentID'
@@ -280,6 +296,12 @@ func (host *Host) AnnounceContent(name string, contentID *cid.Cid, record *DHTNa
 
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	record.Data = contentIDData
+
+	signData, err := host.privateKey.Sign(contentIDData)
+	if err != nil {
+		return err
+	}
+	record.Signature = signData
 
 	value, err := proto.Marshal(&record.DHTNameRecordV1)
 	if err != nil {
@@ -371,11 +393,11 @@ func (host *Host) CreateStream(ctx context.Context, contentID *cid.Cid, pathName
 
 			var stream io.ReadWriteCloser
 
-			if host.swarmKey == nil {
+			if host.privateKey == nil {
 				stream = rawStream
 			} else {
 				var err error
-				stream, err = cryptostream.New(host.swarmKey, rawStream)
+				stream, err = cryptostream.New(host.privateKey, rawStream)
 				if err != nil {
 					continue
 				}
@@ -415,4 +437,18 @@ func (host *Host) CreateStream(ctx context.Context, contentID *cid.Cid, pathName
 	}()
 
 	return streamChan, nil
+}
+
+func (host *Host) getSwarmPublicKey(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	data, err := host.dht.GetValue(ctx, fmt.Sprintf("/crabfs_pk/%s", hash))
+	if err != nil {
+		return nil, err
+	}
+
+	pk, err := libp2pCrypto.UnmarshalRsaPublicKey(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return pk.(*libp2pCrypto.RsaPublicKey), nil
 }

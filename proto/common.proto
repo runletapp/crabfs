@@ -8,6 +8,7 @@ message DHTNameRecordV1 {
     uint32 perm = 3;
     int64 length = 4;
     string mtime = 5;
+    bytes signature = 6;
 }
 
 message ProtocolRequest {

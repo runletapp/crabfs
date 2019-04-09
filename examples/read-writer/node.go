@@ -16,15 +16,13 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func nodeStart(ctx context.Context, discoveryKey string, bootstrapAddr string, mountFS billy.Filesystem, swarmKey io.Reader) *crabfs.CrabFS {
-	// ctx, "exampleBkt", discoveryKey, 0,
+func nodeStart(ctx context.Context, bootstrapAddr string, mountFS billy.Filesystem, privateKey io.Reader) *crabfs.CrabFS {
 	fs, err := crabfs.New(
 		mountFS,
 		options.Context(ctx),
 		options.BucketName("exampleBkt"),
-		options.DiscoveryKey(discoveryKey),
 		options.BootstrapPeers([]string{bootstrapAddr}),
-		options.SwarmKey(swarmKey),
+		options.PrivateKey(privateKey),
 	)
 	if err != nil {
 		panic(err)
@@ -121,8 +119,7 @@ func relayStart(ctx context.Context) {
 
 func main() {
 	outputFile := flag.String("o", "", "Output file")
-	swarmkeyFile := flag.String("p", "", "Output file")
-	discoveryKey := flag.String("k", "example", "discovery key")
+	privateKeyFile := flag.String("p", "", "Private key file")
 	bootstrapPeer := flag.String("d", "", "bootstrap peer to dial")
 	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	readFile := flag.String("q", "", "read file")
@@ -139,7 +136,7 @@ func main() {
 		}
 		defer file.Close()
 
-		generator, err := crabfs.GenerateSwarmKey()
+		generator, err := crabfs.GenerateKeyPair()
 		if err != nil {
 			panic(err)
 		}
@@ -153,8 +150,8 @@ func main() {
 	log.Printf("Starting node...")
 
 	var psk io.Reader
-	if *swarmkeyFile != "" {
-		pskFile, err := os.Open(*swarmkeyFile)
+	if *privateKeyFile != "" {
+		pskFile, err := os.Open(*privateKeyFile)
 		if err != nil {
 			panic(err)
 		}
@@ -162,7 +159,7 @@ func main() {
 		psk = pskFile
 	}
 
-	fs := nodeStart(ctx, *discoveryKey, *bootstrapPeer, osfs.New(*mountLocation), psk)
+	fs := nodeStart(ctx, *bootstrapPeer, osfs.New(*mountLocation), psk)
 
 	if *readFile != "" {
 		reader(ctx, fs, *readFile)
