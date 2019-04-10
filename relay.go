@@ -64,6 +64,11 @@ func (relay *Relay) GetAddrs() []string {
 	return relay.host.GetAddrs()
 }
 
+// GetHostID returns the id of this p2p relay
+func (relay *Relay) GetHostID() string {
+	return relay.host.GetHostID()
+}
+
 // GetRelayID returns the id of this p2p relay
 func (relay *Relay) GetRelayID() string {
 	return relay.p2pRelayHost.ID().Pretty()
