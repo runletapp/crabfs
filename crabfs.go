@@ -3,7 +3,6 @@ package crabfs
 import (
 	"context"
 	"crypto/rand"
-	"log"
 	"os"
 	"path"
 	"sync"
@@ -120,14 +119,14 @@ func (fs *CrabFS) Close() error {
 
 func (fs *CrabFS) background() {
 	if err := fs.bootstrap(); err != nil {
-		log.Printf("Bootstrap error: %v", err)
+		// log.Printf("Bootstrap error: %v", err)
 	}
 
 	// Wait a bit after bootstraping
 	<-time.After(500 * time.Millisecond)
 
 	if err := fs.announce(); err != nil {
-		log.Printf("Announce error: %v", err)
+		// log.Printf("Announce error: %v", err)
 	}
 
 	<-fs.ctx.Done()
@@ -147,7 +146,7 @@ func (fs *CrabFS) GetHostID() string {
 func (fs *CrabFS) bootstrap() error {
 	for _, addr := range fs.bootstrapPeers {
 		if err := fs.host.ConnectToPeer(addr); err != nil {
-			log.Printf("Could not connect: %v", err)
+			// log.Printf("Could not connect: %v", err)
 		}
 	}
 
