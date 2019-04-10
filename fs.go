@@ -208,7 +208,31 @@ func (fs *CrabFS) MkdirAll(filename string, perm os.FileMode) error {
 // the given path. Files outside of the designated directory tree cannot be
 // accessed.
 func (fs *CrabFS) Chroot(path string) (billy.Filesystem, error) {
-	return nil, billy.ErrNotSupported
+	mountFS, err := fs.mountFS.Chroot(path)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithCancel(fs.ctx)
+
+	newFs := &CrabFS{
+		BucketName:     fs.BucketName,
+		mountFS:        mountFS,
+		privateKey:     fs.privateKey,
+		bootstrapPeers: fs.bootstrapPeers,
+
+		ctx:       ctx,
+		ctxCancel: cancel,
+
+		host: fs.host,
+
+		hashCache: fs.hashCache,
+
+		openedFileStreams:      fs.openedFileStreams,
+		openedFileStreamsMutex: fs.openedFileStreamsMutex,
+	}
+
+	return newFs, nil
 }
 
 // Root returns the root path of the filesystem.

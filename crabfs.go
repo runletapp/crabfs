@@ -44,7 +44,7 @@ type CrabFS struct {
 	hashCache *cache.Cache
 
 	openedFileStreams      map[string]*StreamContext
-	openedFileStreamsMutex sync.RWMutex
+	openedFileStreamsMutex *sync.RWMutex
 }
 
 // New creates a new CrabFS instance
@@ -102,7 +102,7 @@ func New(mountFS billy.Filesystem, opts ...options.Option) (*CrabFS, error) {
 		hashCache: hashCache,
 
 		openedFileStreams:      make(map[string]*StreamContext),
-		openedFileStreamsMutex: sync.RWMutex{},
+		openedFileStreamsMutex: &sync.RWMutex{},
 	}
 
 	if !settings.RelayOnly {
