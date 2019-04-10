@@ -54,11 +54,6 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return fmt.Errorf("Invalid key")
 	}
 
-	// Accept empty content id
-	if len(record.Data) == 0 {
-		return nil
-	}
-
 	publicKey, err := validator.pkResolver(validator.ctx, pkHash)
 	if err != nil {
 		return err
