@@ -45,37 +45,7 @@ func (fs *CrabFS) Open(filename string) (billy.File, error) {
 // returned file can be used for reading; the associated file descriptor has
 // mode O_RDONLY.
 func (fs *CrabFS) OpenContext(ctx context.Context, filename string) (billy.File, error) {
-	upstreamRecord, err := fs.GetContentRecord(ctx, filename)
-	if err != nil {
-		return nil, err
-	}
-
-	stat, err := fs.mountFS.Stat(filename)
-	if err != nil {
-		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
-	}
-
-	underlyingFile, err := fs.mountFS.Open(filename)
-	if err != nil {
-		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
-	}
-
-	// the file exists locally, validate its contents
-
-	crabfile := localFileNew(underlyingFile, stat, fs.hashCache, os.O_RDONLY)
-
-	contentIDCalc, err := crabfile.CalcCID()
-	if err != nil {
-		return nil, err
-	}
-
-	mtime := stat.ModTime()
-	if fs.comprareWithUpstream(upstreamRecord, contentIDCalc, &mtime) < 0 {
-		crabfile.Close()
-		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
-	}
-
-	return crabfile, nil
+	return fs.OpenFileContext(ctx, filename, os.O_RDONLY, 0644)
 }
 
 func (fs *CrabFS) openFileStream(ctx context.Context, filename string, record *DHTNameRecord, mode int) (billy.File, error) {
@@ -114,7 +84,6 @@ func (fs *CrabFS) openFileStreamWithPerm(ctx context.Context, filename string, r
 // instead. It opens the named file with specified flag (O_RDONLY etc.) and
 // perm, (0666 etc.) if applicable. If successful, methods on the returned
 // File can be used for I/O.
-// Note: not supported
 func (fs *CrabFS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
 	return fs.OpenFileContext(context.Background(), filename, flag, perm)
 }
@@ -123,9 +92,43 @@ func (fs *CrabFS) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 // instead. It opens the named file with specified flag (O_RDONLY etc.) and
 // perm, (0666 etc.) if applicable. If successful, methods on the returned
 // File can be used for I/O.
-// Note: not supported
 func (fs *CrabFS) OpenFileContext(ctx context.Context, filename string, flag int, perm os.FileMode) (billy.File, error) {
-	return nil, billy.ErrNotSupported
+	upstreamRecord, recordErr := fs.GetContentRecord(ctx, filename)
+
+	stat, err := fs.mountFS.Stat(filename)
+	if err != nil {
+		if recordErr != nil {
+			// Neither local or remote file were found
+			return nil, err
+		}
+
+		return fs.openFileStream(ctx, filename, upstreamRecord, flag)
+	}
+
+	underlyingFile, err := fs.mountFS.Open(filename)
+	if err != nil {
+		if recordErr != nil {
+			return nil, err
+		}
+		return fs.openFileStream(ctx, filename, upstreamRecord, flag)
+	}
+
+	// the file exists locally, validate its contents
+
+	crabfile := localFileNew(underlyingFile, stat, fs.hashCache, flag)
+
+	contentIDCalc, err := crabfile.CalcCID()
+	if err != nil {
+		return nil, err
+	}
+
+	mtime := stat.ModTime()
+	if fs.comprareWithUpstream(upstreamRecord, contentIDCalc, &mtime) < 0 {
+		crabfile.Close()
+		return fs.openFileStream(ctx, filename, upstreamRecord, flag)
+	}
+
+	return crabfile, nil
 }
 
 // Stat returns a FileInfo describing the named file.

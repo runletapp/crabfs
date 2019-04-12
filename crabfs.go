@@ -19,12 +19,11 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
-	libp2pRouting "github.com/libp2p/go-libp2p-routing"
 )
 
 var (
 	// ErrNotFound the request content id does not have providers
-	ErrNotFound = libp2pRouting.ErrNotFound
+	ErrNotFound = errors.New("Not found")
 	// ErrReadOnly the file is marked as read only
 	ErrReadOnly = errors.New("Write on a read only file")
 )
