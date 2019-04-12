@@ -34,7 +34,6 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 }
 
 func reader(ctx context.Context, fs *crabfs.CrabFS, filename string) {
-	<-time.After(5 * time.Second)
 	log.Printf("Looking for: %s", filename)
 	upstreamRecord, err := fs.GetContentRecord(ctx, filename)
 	if err != nil {

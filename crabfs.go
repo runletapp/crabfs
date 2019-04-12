@@ -113,7 +113,7 @@ func New(mountPath string, opts ...options.Option) (*CrabFS, error) {
 	}
 
 	if !settings.RelayOnly {
-		go fs.background()
+		fs.background()
 	}
 
 	return fs, nil
@@ -136,9 +136,6 @@ func (fs *CrabFS) background() {
 	if err := fs.announce(); err != nil {
 		log.Printf("Announce error: %v", err)
 	}
-
-	<-fs.ctx.Done()
-	fs.Close()
 }
 
 // IsClosed check if the node has exited
