@@ -122,10 +122,14 @@ func (fs *CrabFS) OpenFileContext(ctx context.Context, filename string, flag int
 		return nil, err
 	}
 
-	mtime := stat.ModTime()
-	if fs.comprareWithUpstream(upstreamRecord, contentIDCalc, &mtime) < 0 {
-		crabfile.Close()
-		return fs.openFileStream(ctx, filename, upstreamRecord, flag)
+	if recordErr == nil {
+		mtime := stat.ModTime()
+		if fs.comprareWithUpstream(upstreamRecord, contentIDCalc, &mtime) < 0 {
+			crabfile.Close()
+			return fs.openFileStream(ctx, filename, upstreamRecord, flag)
+		}
+	} else {
+		crabfile.OnClose = fs.OnFileClose
 	}
 
 	return crabfile, nil
@@ -140,7 +144,7 @@ func (fs *CrabFS) Stat(filename string) (os.FileInfo, error) {
 func (fs *CrabFS) StatContext(ctx context.Context, filename string) (os.FileInfo, error) {
 	upstreamRecord, err := fs.GetContentRecord(ctx, filename)
 	if err != nil {
-		return nil, err
+		return fs.mountFS.Stat(filename)
 	}
 
 	mtime, err := time.Parse(time.RFC3339Nano, upstreamRecord.Mtime)
@@ -169,10 +173,7 @@ func (fs *CrabFS) Rename(oldpath, newpath string) error {
 // is not a directory, Rename replaces it. OS-specific restrictions may
 // apply when oldpath and newpath are in different directories.
 func (fs *CrabFS) RenameContext(ctx context.Context, oldpath, newpath string) error {
-	upstreamRecord, err := fs.GetContentRecord(ctx, oldpath)
-	if err != nil {
-		return err
-	}
+	upstreamRecord, recordErr := fs.GetContentRecord(ctx, oldpath)
 
 	if err := fs.mountFS.Rename(oldpath, newpath); err != nil {
 		return err
@@ -183,12 +184,17 @@ func (fs *CrabFS) RenameContext(ctx context.Context, oldpath, newpath string) er
 		return err
 	}
 
-	// Remove oldpath from the registry
-	if err := fs.publishContentID(oldpath, nil, nil); err != nil {
-		return err
+	if recordErr == nil {
+		// Remove oldpath from the registry
+		if err := fs.publishContentID(oldpath, nil, nil); err != nil {
+			return err
+		}
+
+		return fs.publishContentID(newpath, stat, upstreamRecord.ContentID)
 	}
 
-	return fs.publishContentID(newpath, stat, upstreamRecord.ContentID)
+	_, err = fs.PublishFile(ctx, newpath, false)
+	return err
 }
 
 // Remove removes the named file or directory.
