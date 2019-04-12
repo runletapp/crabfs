@@ -46,7 +46,7 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return err
 	}
 
-	if _, err := time.Parse(time.RFC3339, record.Timestamp); err != nil {
+	if _, err := time.Parse(time.RFC3339Nano, record.Timestamp); err != nil {
 		return err
 	}
 

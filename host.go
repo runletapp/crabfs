@@ -294,7 +294,7 @@ func (host *Host) AnnounceContent(name string, contentID *cid.Cid, record *DHTNa
 		return err
 	}
 
-	record.Timestamp = time.Now().UTC().Format(time.RFC3339)
+	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 	record.Data = contentIDData
 
 	signData, err := host.privateKey.Sign(contentIDData)
@@ -404,7 +404,7 @@ func (host *Host) CreateStream(ctx context.Context, contentID *cid.Cid, pathName
 			}
 
 			request := ProtocolRequest{
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 				Cid:       contentID.Bytes(),
 				Offset:    0,
 				Length:    0,

@@ -10,15 +10,12 @@ import (
 
 	"github.com/runletapp/crabfs/options"
 
-	"gopkg.in/src-d/go-billy.v4/osfs"
-
 	"github.com/runletapp/crabfs"
-	"gopkg.in/src-d/go-billy.v4"
 )
 
-func nodeStart(ctx context.Context, bootstrapAddr string, mountFS billy.Filesystem, privateKey io.Reader) *crabfs.CrabFS {
+func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, privateKey io.Reader) *crabfs.CrabFS {
 	fs, err := crabfs.New(
-		mountFS,
+		mountLocation,
 		options.Context(ctx),
 		options.BucketName("exampleBkt"),
 		options.BootstrapPeers([]string{bootstrapAddr}),
@@ -159,7 +156,7 @@ func main() {
 		psk = pskFile
 	}
 
-	fs := nodeStart(ctx, *bootstrapPeer, osfs.New(*mountLocation), psk)
+	fs := nodeStart(ctx, *bootstrapPeer, *mountLocation, psk)
 
 	if *readFile != "" {
 		reader(ctx, fs, *readFile)

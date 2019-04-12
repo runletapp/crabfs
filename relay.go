@@ -8,7 +8,6 @@ import (
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
 	"github.com/runletapp/crabfs/options"
-	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 // Relay controls a relay server
@@ -39,7 +38,7 @@ func RelayNew(ctx context.Context, port int, bootstrapPeers []string) (*Relay, e
 	}
 
 	host, err := New(
-		memfs.New(),
+		"tmp/relay",
 		options.Port(port),
 		options.RelayOnly(true),
 		options.BootstrapPeers(addrs),

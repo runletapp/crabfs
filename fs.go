@@ -9,7 +9,7 @@ import (
 )
 
 // OnFileClose handler to process tmpfs file after closing
-func (fs *CrabFS) OnFileClose(file *File) error {
+func (fs *CrabFS) OnFileClose(file File) error {
 	_, err := fs.PublishFile(context.Background(), file.Name(), false)
 	return err
 }
@@ -23,12 +23,13 @@ func (fs *CrabFS) Create(filename string) (billy.File, error) {
 		return nil, err
 	}
 
-	crabfile, err := FileNew(filename, file, fs.hashCache)
+	stat, err := fs.mountFS.Stat(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	crabfile.OnFileClose = fs.OnFileClose
+	crabfile := localFileNew(file, stat, fs.hashCache, os.O_RDWR)
+	crabfile.OnClose = fs.OnFileClose
 
 	return crabfile, nil
 }
@@ -49,51 +50,64 @@ func (fs *CrabFS) OpenContext(ctx context.Context, filename string) (billy.File,
 		return nil, err
 	}
 
+	stat, err := fs.mountFS.Stat(filename)
+	if err != nil {
+		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
+	}
+
 	underlyingFile, err := fs.mountFS.Open(filename)
 	if err != nil {
-		return fs.openFileStream(ctx, filename)
+		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
 	}
 
 	// the file exists locally, validate its contents
 
-	fileBlock, err := FileNew(filename, underlyingFile, fs.hashCache)
+	crabfile := localFileNew(underlyingFile, stat, fs.hashCache, os.O_RDONLY)
+
+	contentIDCalc, err := crabfile.CalcCID()
 	if err != nil {
 		return nil, err
 	}
 
-	stat, err := fs.mountFS.Stat(filename)
-	if err != nil {
-		return nil, err
-	}
 	mtime := stat.ModTime()
-
-	if _, err := fileBlock.CalcHash(&mtime); err != nil {
-		return nil, err
+	if fs.comprareWithUpstream(upstreamRecord, contentIDCalc, &mtime) < 0 {
+		crabfile.Close()
+		return fs.openFileStream(ctx, filename, upstreamRecord, os.O_RDONLY)
 	}
 
-	contentIDCalc := fileBlock.GetCID()
-
-	if !contentIDCalc.Equals(*upstreamRecord.ContentID) {
-		fileBlock.Close()
-		return fs.openFileStream(ctx, filename)
-	}
-
-	return fileBlock, nil
+	return crabfile, nil
 }
 
-func (fs *CrabFS) openFileStream(ctx context.Context, filename string) (billy.File, error) {
-	underlyingFile, err := fs.CreateFileStream(ctx, filename)
+func (fs *CrabFS) openFileStream(ctx context.Context, filename string, record *DHTNameRecord, mode int) (billy.File, error) {
+	return fs.openFileStreamWithPerm(ctx, filename, record, mode, 0644)
+}
+
+func (fs *CrabFS) openFileStreamWithPerm(ctx context.Context, filename string, record *DHTNameRecord, mode int, perm int) (billy.File, error) {
+	targetFile, err := fs.mountFS.OpenFile(filename, os.O_RDWR|os.O_CREATE, os.FileMode(perm))
 	if err != nil {
 		return nil, err
 	}
 
-	fileBlock, err := FileNew(filename, underlyingFile, fs.hashCache)
-	if err != nil {
-		return nil, err
-	}
-	fileBlock.OnFileClose = fs.OnFileClose
+	file, err := remoteFileNew(ctx, filename, record, fs.host, targetFile)
 
-	return fileBlock, nil
+	go func() {
+		// We set the modification time, after closing the file
+		<-file.PullerContext().Done()
+		mtime, err := time.Parse(time.RFC3339Nano, record.Mtime)
+		if err != nil {
+			return
+		}
+		mtime = mtime.Local()
+		fs.changeMtime(filename, mtime)
+	}()
+
+	// Wait until the file has completed the pull opertion
+	if mode != os.O_RDONLY {
+		file.OnClose = fs.OnFileClose
+		<-file.PullerContext().Done()
+	}
+
+	return file, err
 }
 
 // OpenFile is the generalized open call; most users will use Open or Create
@@ -102,6 +116,15 @@ func (fs *CrabFS) openFileStream(ctx context.Context, filename string) (billy.Fi
 // File can be used for I/O.
 // Note: not supported
 func (fs *CrabFS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
+	return fs.OpenFileContext(context.Background(), filename, flag, perm)
+}
+
+// OpenFileContext is the generalized open call with context; most users will use Open or Create
+// instead. It opens the named file with specified flag (O_RDONLY etc.) and
+// perm, (0666 etc.) if applicable. If successful, methods on the returned
+// File can be used for I/O.
+// Note: not supported
+func (fs *CrabFS) OpenFileContext(ctx context.Context, filename string, flag int, perm os.FileMode) (billy.File, error) {
 	return nil, billy.ErrNotSupported
 }
 
@@ -117,7 +140,7 @@ func (fs *CrabFS) StatContext(ctx context.Context, filename string) (os.FileInfo
 		return nil, err
 	}
 
-	mtime, err := time.Parse(time.RFC3339, upstreamRecord.Mtime)
+	mtime, err := time.Parse(time.RFC3339Nano, upstreamRecord.Mtime)
 	if err != nil {
 		mtime = time.Now().UTC()
 	}
@@ -152,12 +175,17 @@ func (fs *CrabFS) RenameContext(ctx context.Context, oldpath, newpath string) er
 		return err
 	}
 
-	// Remove old path from the routing table
-	if err := fs.announceContentID(oldpath, nil); err != nil {
+	stat, err := fs.mountFS.Stat(newpath)
+	if err != nil {
 		return err
 	}
 
-	return fs.announceContentID(newpath, upstreamRecord.ContentID)
+	// Remove oldpath from the registry
+	if err := fs.publishContentID(oldpath, nil, nil); err != nil {
+		return err
+	}
+
+	return fs.publishContentID(newpath, stat, upstreamRecord.ContentID)
 }
 
 // Remove removes the named file or directory.
@@ -167,7 +195,7 @@ func (fs *CrabFS) Remove(filename string) error {
 	}
 
 	// Remove path from the routing table
-	return fs.announceContentID(filename, nil)
+	return fs.publishContentID(filename, nil, nil)
 }
 
 // Join joins any number of path elements into a single path, adding a
