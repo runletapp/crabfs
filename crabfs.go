@@ -19,6 +19,7 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	libp2pRouting "github.com/libp2p/go-libp2p-routing"
 )
 
 var (
@@ -150,7 +151,7 @@ func (fs *CrabFS) GetHostID() string {
 func (fs *CrabFS) bootstrap() error {
 	for _, addr := range fs.bootstrapPeers {
 		if err := fs.host.ConnectToPeer(addr); err != nil {
-			// log.Printf("Could not connect: %v", err)
+			log.Printf("Could not connect: %v", err)
 		}
 	}
 
@@ -207,7 +208,8 @@ func (fs *CrabFS) PublishFile(ctx context.Context, filename string, verify bool)
 
 	if verify {
 		upstreamRecord, err := fs.GetContentRecord(ctx, filename)
-		if err != nil && err != ErrNotFound {
+		if err != nil && err != libp2pRouting.ErrNotFound {
+			log.Printf("Here: %v", err)
 			return nil, err
 		} else if err == nil {
 			mtime := stat.ModTime()
