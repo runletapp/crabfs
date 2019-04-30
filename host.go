@@ -33,7 +33,7 @@ import (
 
 var (
 	// ProtocolV1 crabfs version 1
-	ProtocolV1 = libp2pProtocol.ID("/crabfs/v1")
+	ProtocolV1 = "/crabfs/v1/%s"
 )
 
 // Host controls the p2p host instance
@@ -55,31 +55,6 @@ type Host struct {
 
 // HostNew creates a new host instance
 func HostNew(ctx context.Context, port int, privateKey *libp2pCrypto.RsaPrivateKey, mountFS billy.Filesystem) (*Host, error) {
-	if privateKey == nil {
-		return nil, ErrInvalidPrivateKey
-	}
-
-	publicKeyData, err := libp2pCrypto.MarshalRsaPublicKey(privateKey.GetPublic().(*libp2pCrypto.RsaPublicKey))
-	if err != nil {
-		return nil, err
-	}
-	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
-	if err != nil {
-		return nil, err
-	}
-
-	host := &Host{
-		ctx:  ctx,
-		port: port,
-
-		privateKey: privateKey,
-
-		publicKeyHash: publicKeyHash.String(),
-		publicKeyData: publicKeyData,
-
-		mountFS: mountFS,
-	}
-
 	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
 	if err != nil {
 		return nil, err
@@ -103,10 +78,40 @@ func HostNew(ctx context.Context, port int, privateKey *libp2pCrypto.RsaPrivateK
 		return nil, err
 	}
 
+	return HostNewWithP2P(ctx, p2pHost, port, privateKey, mountFS)
+}
+
+// HostNewWithP2P creates a new host with an underlying p2p host
+func HostNewWithP2P(ctx context.Context, p2pHost libp2pHost.Host, port int, privateKey *libp2pCrypto.RsaPrivateKey, mountFS billy.Filesystem) (*Host, error) {
+	if privateKey == nil {
+		return nil, ErrInvalidPrivateKey
+	}
+
+	publicKeyData, err := libp2pCrypto.MarshalRsaPublicKey(privateKey.GetPublic().(*libp2pCrypto.RsaPublicKey))
+	if err != nil {
+		return nil, err
+	}
+	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
+	if err != nil {
+		return nil, err
+	}
+
+	newHost := &Host{
+		ctx:  ctx,
+		port: port,
+
+		privateKey: privateKey,
+
+		publicKeyHash: publicKeyHash.String(),
+		publicKeyData: publicKeyData,
+
+		mountFS: mountFS,
+	}
+
 	// Configure peer discovery and key validator
 	dhtValidator := libp2pdhtOptions.NamespacedValidator(
 		"crabfs",
-		DHTNamespaceValidatorNew(ctx, host.getSwarmPublicKey),
+		DHTNamespaceValidatorNew(ctx, newHost.getSwarmPublicKey),
 	)
 	dhtPKValidator := libp2pdhtOptions.NamespacedValidator(
 		"crabfs_pk",
@@ -117,16 +122,27 @@ func HostNew(ctx context.Context, port int, privateKey *libp2pCrypto.RsaPrivateK
 		return nil, err
 	}
 
-	host.dht = dht
+	newHost.dht = dht
 
 	if err = dht.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
 
-	host.p2pHost = libp2pRoutedHost.Wrap(p2pHost, dht)
-	host.p2pHost.SetStreamHandler(ProtocolV1, host.handleStreamV1)
+	newHost.p2pHost = libp2pRoutedHost.Wrap(p2pHost, dht)
 
-	return host, nil
+	newHost.p2pHost.SetStreamHandler(newHost.getProtocol(), newHost.handleStreamV1)
+
+	return newHost, nil
+}
+
+// Derive creates a new host using the same underlying host structures.
+// NOTE: New hosts will use the same port and address as the parent as well as the parent context
+func (host *Host) Derive(privateKey *libp2pCrypto.RsaPrivateKey, mountFS billy.Filesystem) (*Host, error) {
+	return HostNewWithP2P(host.ctx, host.p2pHost, host.port, privateKey, mountFS)
+}
+
+func (host *Host) getProtocol() libp2pProtocol.ID {
+	return libp2pProtocol.ID(fmt.Sprintf(ProtocolV1, host.publicKeyHash))
 }
 
 func (host *Host) handleStreamV1(rawStream libp2pNet.Stream) {
@@ -386,7 +402,7 @@ func (host *Host) CreateStream(ctx context.Context, contentID *cid.Cid, pathName
 	go func() {
 		defer close(streamChan)
 		for _, peer := range peerInfoList {
-			rawStream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
+			rawStream, err := host.p2pHost.NewStream(ctx, peer.ID, host.getProtocol())
 			if err != nil {
 				continue
 			}
