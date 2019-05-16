@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package protos;
+
+message DHTNameRecord {
+    string timestamp = 1;
+    bytes data = 2;
+    bytes signature = 3;
+}
+
+message BlockMetadata {
+    bytes cid = 1;
+    int64 start = 2;
+    int64 size = 3;
+}
+
+message DHTNameRecordValue {
+    map<int64, BlockMetadata> blocks = 1;
+    string mtime = 2;
+    int64 size = 3;
+}
+
+message BlockStreamRequest {
+    bytes cid = 1;
+}
