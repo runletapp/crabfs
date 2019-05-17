@@ -92,7 +92,7 @@ func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, private
 		return nil, ErrInvalidPrivateKey
 	}
 
-	publicKeyData, err := libp2pCrypto.MarshalRsaPublicKey(privateKey.GetPublic().(*libp2pCrypto.RsaPublicKey))
+	publicKeyData, err := libp2pCrypto.MarshalPublicKey(privateKey.GetPublic())
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (*libp
 		return nil, err
 	}
 
-	pk, err := libp2pCrypto.UnmarshalRsaPublicKey(data)
+	pk, err := libp2pCrypto.UnmarshalPublicKey(data)
 	if err != nil {
 		return nil, err
 	}

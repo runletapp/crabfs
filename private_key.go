@@ -16,7 +16,12 @@ func GenerateKeyPair() (io.Reader, error) {
 		return nil, err
 	}
 
-	reader := bytes.NewReader(libp2pCrypto.MarshalRsaPrivateKey(privateKey.(*libp2pCrypto.RsaPrivateKey)))
+	data, err := libp2pCrypto.MarshalPrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := bytes.NewReader(data)
 	return reader, nil
 }
 

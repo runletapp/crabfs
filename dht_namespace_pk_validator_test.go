@@ -48,7 +48,7 @@ func TestPkValidatorValidateInvalidPublicKeyHash(t *testing.T) {
 	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalRsaPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
+	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
 	assert.Nil(err)
 
 	assert.NotNil(validator.Validate("/crabfs_pk/12345", data))
@@ -62,7 +62,7 @@ func TestPkValidatorValidateValidPublicKey(t *testing.T) {
 	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalRsaPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
+	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
 	assert.Nil(err)
 
 	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
@@ -81,7 +81,7 @@ func TestPkValidatorSelect(t *testing.T) {
 	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalRsaPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
+	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
 	assert.Nil(err)
 
 	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
@@ -106,7 +106,7 @@ func TestPkValidatorSelectNoValues(t *testing.T) {
 	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalRsaPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
+	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
 	assert.Nil(err)
 
 	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)

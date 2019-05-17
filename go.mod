@@ -14,7 +14,7 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v0.0.1
 	github.com/libp2p/go-libp2p v0.0.12
 	github.com/libp2p/go-libp2p-circuit v0.0.4
-	github.com/libp2p/go-libp2p-crypto v0.0.1
+	github.com/libp2p/go-libp2p-crypto v0.0.2
 	github.com/libp2p/go-libp2p-discovery v0.0.1
 	github.com/libp2p/go-libp2p-host v0.0.1
 	github.com/libp2p/go-libp2p-kad-dht v0.0.7

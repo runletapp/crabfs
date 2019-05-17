@@ -35,7 +35,7 @@ func GenerateKeyPairWithHash(t *testing.T) (*libp2pCrypto.RsaPrivateKey, *libp2p
 	privKey, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalRsaPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
+	data, err := libp2pCrypto.MarshalPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))
 	assert.Nil(err)
 
 	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)

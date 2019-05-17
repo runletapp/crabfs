@@ -27,7 +27,7 @@ func (validator DHTNamespacePKValidatorV1) Validate(key string, value []byte) er
 		return fmt.Errorf("Invalid key. Expexted format: /crabfs_pk/<hash> Got: %v", key)
 	}
 
-	if _, err := libp2pCrypto.UnmarshalRsaPublicKey(value); err != nil {
+	if _, err := libp2pCrypto.UnmarshalPublicKey(value); err != nil {
 		return err
 	}
 
