@@ -5,8 +5,11 @@ import (
 	"io"
 	"time"
 
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
 
+	ipfsDatastore "github.com/ipfs/go-datastore"
 	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 )
@@ -37,3 +40,6 @@ type Host interface {
 	// GetAddrs returns the addresses bound to this host
 	GetAddrs() []string
 }
+
+// HostFactory type
+type HostFactory func(settings *options.Settings, privateKey *libp2pCrypto.RsaPrivateKey, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (Host, error)

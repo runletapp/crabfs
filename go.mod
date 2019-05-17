@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gogo/protobuf v1.2.1
+	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.0
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.1
@@ -22,6 +23,6 @@ require (
 	github.com/libp2p/go-libp2p-record v0.0.1
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/multiformats/go-multihash v0.0.1
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
+	github.com/stretchr/testify v1.3.0
 	golang.org/x/sys v0.0.0-20190302025703-b6889370fb10 // indirect
 )

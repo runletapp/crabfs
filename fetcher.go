@@ -30,11 +30,11 @@ type BasicFetcher struct {
 
 	blockMap interfaces.BlockMap
 
-	fs *crabFS
+	fs interfaces.Core
 }
 
 // BasicFetcherNew creates a new basic fetcher
-func BasicFetcherNew(ctx context.Context, fs *crabFS, blockMap interfaces.BlockMap) (interfaces.Fetcher, error) {
+func BasicFetcherNew(ctx context.Context, fs interfaces.Core, blockMap interfaces.BlockMap) (interfaces.Fetcher, error) {
 	keys := []int64{}
 
 	totalSize := int64(0)
@@ -109,7 +109,7 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	}
 
 	cid, _ := cid.Cast(blockMeta.Cid)
-	block, err := fetcher.fs.blockstore.Get(cid)
+	block, err := fetcher.fs.Blockstore().Get(cid)
 	if err == nil {
 		fetcher.buffer.Write(block.RawData()[localOffset:])
 
@@ -119,8 +119,11 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		}
 
 		fetcher.offset += int64(n)
+
+		return n, err
 	}
 
+	// TODO: improvement: fetch-ahead blocks
 	block, err = fetcher.downloadBlock(blockMeta)
 	if err != nil {
 		return 0, err
@@ -140,19 +143,23 @@ func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.
 	ctx, cancel := context.WithCancel(fetcher.ctx)
 	defer cancel()
 
-	ch := fetcher.fs.host.FindProviders(ctx, blockMeta)
+	ch := fetcher.fs.Host().FindProviders(ctx, blockMeta)
 	for peer := range ch {
 
 		buffer := &bytes.Buffer{}
 
-		stream, err := fetcher.fs.host.CreateBlockStream(fetcher.ctx, blockMeta, &peer)
+		stream, err := fetcher.fs.Host().CreateBlockStream(fetcher.ctx, blockMeta, &peer)
 		if err != nil {
-			return nil, err
+			// return nil, err
+			// Could not create stream, try the next peer
+			continue
 		}
 
 		_, err = io.CopyN(buffer, stream, blockMeta.Size)
 		if err != nil {
-			return nil, err
+			// return nil, err
+			// Short read, try the next peer
+			continue
 		}
 
 		block := blocks.NewBlock(buffer.Bytes())
@@ -163,7 +170,7 @@ func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.
 			continue
 		}
 
-		if err := fetcher.fs.blockstore.Put(block); err != nil {
+		if err := fetcher.fs.Blockstore().Put(block); err != nil {
 			return nil, err
 		}
 

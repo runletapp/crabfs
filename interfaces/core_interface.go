@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 // Core interface
@@ -22,4 +24,10 @@ type Core interface {
 
 	// GetAddrs returns the addresses bound to this node
 	GetAddrs() []string
+
+	// Blockstore returns the currently used blockstore
+	Blockstore() ipfsBlockstore.Blockstore
+
+	// Host returns the currently used host
+	Host() Host
 }

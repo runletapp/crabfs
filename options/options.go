@@ -117,9 +117,16 @@ func BlockSize(blockSize int64) Option {
 	}
 }
 
+// Root set base location
 func Root(root string) Option {
 	return func(s *Settings) error {
 		s.Root = root
 		return nil
 	}
 }
+
+// func HostFactory(factory factories.HostFactory) Option {
+// 	return func(s *Settings) error {
+// 		return nil
+// 	}
+// }

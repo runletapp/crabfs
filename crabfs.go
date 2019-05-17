@@ -27,6 +27,8 @@ type crabFS struct {
 
 	datastore  *ipfsDatastoreSync.MutexDatastore
 	blockstore ipfsBlockstore.Blockstore
+
+	fetcherFactory interfaces.FetcherFactory
 }
 
 // New create a new CrabFS
@@ -66,7 +68,8 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 
 	blockstore := ipfsBlockstore.NewBlockstore(datastore)
 
-	host, err := HostNew(&settings, privateKey, datastore, blockstore)
+	hostFactory := HostNew
+	host, err := hostFactory(&settings, privateKey, datastore, blockstore)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +88,8 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		datastore: datastore,
 
 		blockstore: blockstore,
+
+		fetcherFactory: BasicFetcherNew,
 	}
 
 	return fs, nil
@@ -96,7 +101,7 @@ func (fs *crabFS) Get(ctx context.Context, filename string) (io.ReadSeeker, int6
 		return nil, 0, err
 	}
 
-	fetcher, err := BasicFetcherNew(ctx, fs, blockMap)
+	fetcher, err := fs.fetcherFactory(ctx, fs, blockMap)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -160,4 +165,12 @@ func (fs *crabFS) GetID() string {
 
 func (fs *crabFS) GetAddrs() []string {
 	return fs.host.GetAddrs()
+}
+
+func (fs *crabFS) Blockstore() ipfsBlockstore.Blockstore {
+	return fs.blockstore
+}
+
+func (fs *crabFS) Host() interfaces.Host {
+	return fs.host
 }
