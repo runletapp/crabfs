@@ -111,10 +111,10 @@ func (validator DHTNamespaceValidatorV1) Select(key string, values [][]byte) (in
 	var selected int
 	selected = -1
 
-	var value []byte
 	var record pb.DHTNameRecord
 	var lastRecord *pb.DHTNameRecord
 	for i := 0; i < len(values); i++ {
+		value := values[i]
 		if err := proto.Unmarshal(value, &record); err != nil {
 			return 0, err
 		}

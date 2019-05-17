@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 )
 
 // Settings init settings
@@ -19,6 +20,8 @@ type Settings struct {
 	BlockSize int64
 
 	Root string
+
+	ReprovideInterval time.Duration
 }
 
 // Option represents a single init option
@@ -40,6 +43,8 @@ func (s *Settings) SetDefaults() error {
 	s.BlockSize = 100 * 1024
 
 	s.Root = ""
+
+	s.ReprovideInterval = 1 * time.Minute
 
 	return nil
 }
@@ -121,6 +126,14 @@ func BlockSize(blockSize int64) Option {
 func Root(root string) Option {
 	return func(s *Settings) error {
 		s.Root = root
+		return nil
+	}
+}
+
+// ReprovideInterval interval which blocks are republished to the network
+func ReprovideInterval(interval time.Duration) Option {
+	return func(s *Settings) error {
+		s.ReprovideInterval = interval
 		return nil
 	}
 }

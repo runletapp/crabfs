@@ -104,7 +104,25 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		fetcherFactory: BasicFetcherNew,
 	}
 
+	if !settings.RelayOnly {
+		go fs.background()
+	}
+
 	return fs, nil
+}
+
+func (fs *crabFS) background() {
+	fs.host.Reprovide(fs.settings.Context)
+
+	ticker := time.NewTicker(fs.settings.ReprovideInterval)
+	for {
+		select {
+		case <-ticker.C:
+			fs.host.Reprovide(fs.settings.Context)
+		case <-fs.settings.Context.Done():
+			return
+		}
+	}
 }
 
 func (fs *crabFS) Close() error {

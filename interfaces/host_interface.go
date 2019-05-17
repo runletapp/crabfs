@@ -39,6 +39,9 @@ type Host interface {
 
 	// GetAddrs returns the addresses bound to this host
 	GetAddrs() []string
+
+	// Reprovide republish blocks and block metas to the network
+	Reprovide(ctx context.Context) error
 }
 
 // HostFactory type

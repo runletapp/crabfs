@@ -154,3 +154,17 @@ func (mr *MockHostMockRecorder) GetAddrs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddrs", reflect.TypeOf((*MockHost)(nil).GetAddrs))
 }
+
+// Reprovide mocks base method
+func (m *MockHost) Reprovide(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reprovide", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Reprovide indicates an expected call of Reprovide
+func (mr *MockHostMockRecorder) Reprovide(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reprovide", reflect.TypeOf((*MockHost)(nil).Reprovide), ctx)
+}

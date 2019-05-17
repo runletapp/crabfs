@@ -21,6 +21,7 @@ import (
 	pb "github.com/runletapp/crabfs/protos"
 
 	ipfsDatastore "github.com/ipfs/go-datastore"
+	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
@@ -181,6 +182,32 @@ func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
 	if err != nil {
 		return
 	}
+}
+
+func (host *hostImpl) Reprovide(ctx context.Context) error {
+	query := ipfsDatastoreQuery.Query{
+		Prefix: "/crabfs/",
+	}
+
+	results, err := host.ds.Query(query)
+	if err != nil {
+		return err
+	}
+
+	for result := range results.Next() {
+		host.dht.PutValue(ctx, result.Key, result.Value)
+	}
+
+	ch, err := host.blockstore.AllKeysChan(ctx)
+	if err != nil {
+		return err
+	}
+
+	for cid := range ch {
+		host.dht.Provide(ctx, cid, true)
+	}
+
+	return nil
 }
 
 func (host *hostImpl) connectToPeer(addr string) error {
