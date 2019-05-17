@@ -53,7 +53,7 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return err
 	}
 
-	if len(record.Signature) == 0 {
+	if record.Signature == nil || len(record.Signature) == 0 {
 		return fmt.Errorf("Invalid key")
 	}
 
@@ -112,19 +112,19 @@ func (validator DHTNamespaceValidatorV1) Select(key string, values [][]byte) (in
 	selected = -1
 
 	var record pb.DHTNameRecord
-	var lastRecord *pb.DHTNameRecord
+	var lastRecord pb.DHTNameRecord
 	for i := 0; i < len(values); i++ {
 		value := values[i]
 		if err := proto.Unmarshal(value, &record); err != nil {
 			return 0, err
 		}
 
-		if lastRecord == nil {
+		if selected == -1 {
 			selected = i
-		} else if bytes.Compare([]byte(lastRecord.Timestamp), []byte(record.Timestamp)) > 0 {
+		} else if bytes.Compare([]byte(lastRecord.Timestamp), []byte(record.Timestamp)) < 0 {
 			selected = i
 		}
-		lastRecord = &record
+		lastRecord = record
 	}
 
 	return selected, nil
