@@ -148,6 +148,16 @@ func (host *hostImpl) Announce() error {
 	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
 	discovery.Advertise(host.settings.Context, routingDiscovery, host.publicKeyHash)
 
+	if host.dht.RoutingTable().Size() > 0 {
+		if err := host.putPublicKey(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (host *hostImpl) putPublicKey() error {
 	if err := host.dht.PutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", host.publicKeyHash), host.publicKeyData); err != nil {
 		return err
 	}
@@ -195,8 +205,10 @@ func (host *hostImpl) Reprovide(ctx context.Context) error {
 	}
 
 	for result := range results.Next() {
-		host.dht.PutValue(ctx, result.Key, result.Value)
+		host.dhtPutValue(ctx, result.Key, result.Value)
 	}
+
+	host.putPublicKey()
 
 	ch, err := host.blockstore.AllKeysChan(ctx)
 	if err != nil {
@@ -204,7 +216,7 @@ func (host *hostImpl) Reprovide(ctx context.Context) error {
 	}
 
 	for cid := range ch {
-		host.dht.Provide(ctx, cid, true)
+		host.provide(ctx, cid)
 	}
 
 	return nil
@@ -286,18 +298,35 @@ func (host *hostImpl) Publish(ctx context.Context, filename string, blockMap int
 
 	for _, blockMeta := range blockMap {
 		cid, _ := cid.Cast(blockMeta.Cid)
-		if err := host.dht.Provide(ctx, cid, true); err != nil {
+		if err := host.provide(ctx, cid); err != nil {
 			return err
 		}
 	}
 
 	bucketFilename := path.Join(host.settings.BucketName, filename)
 	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+
+	return host.dhtPutValue(ctx, key, value)
+}
+
+func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
+	if host.dht.RoutingTable().Size() > 0 {
+		return host.dht.Provide(ctx, cid, true)
+	}
+
+	return nil
+}
+
+func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte) error {
 	if err := host.ds.Put(ipfsDatastore.NewKey(key), value); err != nil {
 		return err
 	}
 
-	return host.dht.PutValue(ctx, key, value)
+	if host.dht.RoutingTable().Size() > 0 {
+		return host.dht.PutValue(ctx, key, value)
+	}
+
+	return nil
 }
 
 func (host *hostImpl) GetContent(ctx context.Context, filename string) (interfaces.BlockMap, error) {

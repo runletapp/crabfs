@@ -11,7 +11,7 @@ import (
 type Settings struct {
 	Context        context.Context
 	BucketName     string
-	Port           int
+	Port           uint
 	BootstrapPeers []string
 	RelayOnly      bool
 
@@ -58,7 +58,7 @@ func Context(ctx context.Context) Option {
 }
 
 // Port option
-func Port(port int) Option {
+func Port(port uint) Option {
 	return func(s *Settings) error {
 		s.Port = port
 		return nil

@@ -15,14 +15,14 @@ import (
 type Relay struct {
 	ctx context.Context
 
-	port int
+	port uint
 
 	p2pRelayHost libp2pHost.Host
 	host         interfaces.Core
 }
 
 // RelayNew creates a new relay instance
-func RelayNew(ctx context.Context, port int, bootstrapPeers []string) (*Relay, error) {
+func RelayNew(ctx context.Context, port uint, bootstrapPeers []string) (*Relay, error) {
 	relayHost, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(libp2pCircuit.OptHop),
