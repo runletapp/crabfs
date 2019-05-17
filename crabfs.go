@@ -14,6 +14,7 @@ import (
 
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
+	ipfsDsBadger "github.com/ipfs/go-ds-badger"
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 )
@@ -63,8 +64,19 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		}
 	}
 
-	// TODO: Persistence
-	datastore := ipfsDatastoreSync.MutexWrap(ipfsDatastore.NewMapDatastore())
+	var rawDatastore ipfsDatastore.Datastore
+	if settings.Root == "" {
+		// Use an in-memory datastore
+		rawDatastore = ipfsDatastore.NewMapDatastore()
+	} else {
+		var err error
+		rawDatastore, err = ipfsDsBadger.NewDatastore(settings.Root, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	datastore := ipfsDatastoreSync.MutexWrap(rawDatastore)
 
 	blockstore := ipfsBlockstore.NewBlockstore(datastore)
 
@@ -93,6 +105,10 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 	}
 
 	return fs, nil
+}
+
+func (fs *crabFS) Close() error {
+	return fs.datastore.Close()
 }
 
 func (fs *crabFS) Get(ctx context.Context, filename string) (io.ReadSeeker, int64, error) {

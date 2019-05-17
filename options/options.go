@@ -124,9 +124,3 @@ func Root(root string) Option {
 		return nil
 	}
 }
-
-// func HostFactory(factory factories.HostFactory) Option {
-// 	return func(s *Settings) error {
-// 		return nil
-// 	}
-// }

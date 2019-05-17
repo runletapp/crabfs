@@ -10,6 +10,7 @@ require (
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.1
 	github.com/ipfs/go-datastore v0.0.3
+	github.com/ipfs/go-ds-badger v0.0.2
 	github.com/ipfs/go-ipfs-blockstore v0.0.1
 	github.com/libp2p/go-libp2p v0.0.12
 	github.com/libp2p/go-libp2p-circuit v0.0.4
@@ -21,6 +22,7 @@ require (
 	github.com/libp2p/go-libp2p-net v0.0.2
 	github.com/libp2p/go-libp2p-peerstore v0.0.2
 	github.com/libp2p/go-libp2p-record v0.0.1
+	github.com/libp2p/go-libp2p-routing v0.0.1
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/multiformats/go-multihash v0.0.1
 	github.com/stretchr/testify v1.3.0

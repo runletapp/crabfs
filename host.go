@@ -30,6 +30,7 @@ import (
 	libp2pDhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
 	libp2pNet "github.com/libp2p/go-libp2p-net"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
+	libp2pRouting "github.com/libp2p/go-libp2p-routing"
 	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
 )
 
@@ -264,14 +265,32 @@ func (host *hostImpl) Publish(ctx context.Context, filename string, blockMap int
 	}
 
 	bucketFilename := path.Join(host.settings.BucketName, filename)
-	return host.dht.PutValue(ctx, KeyFromFilename(host.publicKeyHash, bucketFilename), value)
+	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+	if err := host.ds.Put(ipfsDatastore.NewKey(key), value); err != nil {
+		return err
+	}
+
+	return host.dht.PutValue(ctx, key, value)
 }
 
 func (host *hostImpl) GetContent(ctx context.Context, filename string) (interfaces.BlockMap, error) {
 	bucketFilename := path.Join(host.settings.BucketName, filename)
-	data, err := host.dht.GetValue(ctx, KeyFromFilename(host.publicKeyHash, bucketFilename))
-	if err != nil {
+	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+	data, err := host.dht.GetValue(ctx, key)
+
+	// Not found in remote query, try local only
+	if err != nil && err == libp2pRouting.ErrNotFound {
+		var err error
+		data, err = host.ds.Get(ipfsDatastore.NewKey(key))
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
 		return nil, err
+	} else if err == nil {
+		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
+			// Log
+		}
 	}
 
 	var record pb.DHTNameRecord

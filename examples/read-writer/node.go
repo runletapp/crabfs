@@ -46,7 +46,7 @@ func reader(ctx context.Context, fs interfaces.Core, filename string) {
 
 	log.Printf("Size: %d", size)
 
-	_, err = file.Seek(3, os.SEEK_SET)
+	_, err = file.Seek(0, os.SEEK_SET)
 	if err != nil {
 		log.Printf("Seek Err: %v", err)
 	}
