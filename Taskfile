@@ -5,6 +5,10 @@ function generateProtos {
     protoc -I ./protobuf ./protobuf/*.proto --go_out=plugins=grpc:./protos
 }
 
+function test {
+    go test -cover -timeout 30s $*
+}
+
 function help {
     echo "$0 <task> <args>"
     echo "Tasks:"
