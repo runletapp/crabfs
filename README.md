@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.com/runletapp/crabfs.svg?branch=master)](https://travis-ci.com/runletapp/crabfs)
 [![GoDoc](https://godoc.org/github.com/runletapp/crabfs?status.svg)](https://godoc.org/github.com/runletapp/crabfs)
+[![Discord](https://img.shields.io/discord/536517455284273192.svg)](https://discord.gg/fp2VqVC)
 
 CrabFS is a distributed (p2p) blockstorage that is easily embeddable and supports file seeking without downloading the whole file.
 
