@@ -83,6 +83,20 @@ func (mr *MockHostMockRecorder) Publish(ctx, filename, blockMap, mtime, size int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, filename, blockMap, mtime, size)
 }
 
+// Remove mocks base method
+func (m *MockHost) Remove(ctx context.Context, filename string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove", ctx, filename)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Remove indicates an expected call of Remove
+func (mr *MockHostMockRecorder) Remove(ctx, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockHost)(nil).Remove), ctx, filename)
+}
+
 // GetContent mocks base method
 func (m *MockHost) GetContent(ctx context.Context, filename string) (interfaces.BlockMap, error) {
 	m.ctrl.T.Helper()

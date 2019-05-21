@@ -392,3 +392,42 @@ func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.Block
 
 	return stream, stream.Close()
 }
+
+func (host *hostImpl) Remove(ctx context.Context, filename string) error {
+	// Create a new record to replace the old one,
+	// remove all blocks and set the delete flag to true
+	record := &pb.DHTNameRecord{
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+		Delete:    true,
+	}
+
+	recordValue := &pb.DHTNameRecordValue{
+		Blocks: map[int64]*pb.BlockMetadata{},
+		Mtime:  time.Now().UTC().Format(time.RFC3339Nano),
+		Size:   0,
+	}
+
+	data, err := proto.Marshal(recordValue)
+	if err != nil {
+		return err
+	}
+
+	record.Data = data
+
+	signature, err := host.privateKey.Sign(data)
+	if err != nil {
+		return err
+	}
+
+	record.Signature = signature
+
+	value, err := proto.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	bucketFilename := path.Join(host.settings.BucketName, filename)
+	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+
+	return host.dhtPutValue(ctx, key, value)
+}

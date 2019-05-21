@@ -3,11 +3,8 @@ package crabfs
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"time"
-
-	"github.com/ipfs/go-cid"
 
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
@@ -177,20 +174,8 @@ func (fs *crabFS) Put(ctx context.Context, filename string, file io.Reader, mtim
 }
 
 func (fs *crabFS) Remove(ctx context.Context, filename string) error {
-	blockMap, err := fs.host.GetContent(ctx, filename)
-	if err != nil {
-		return err
-	}
-
-	for _, blockMeta := range blockMap {
-		cid, _ := cid.Cast(blockMeta.Cid)
-
-		if err := fs.blockstore.DeleteBlock(cid); err != nil {
-			fmt.Printf("Could not delete block: %s", cid.String())
-		}
-	}
-
-	return nil
+	return fs.host.Remove(ctx, filename)
+	// TODO schedule garbage collector
 }
 
 func (fs *crabFS) GetID() string {

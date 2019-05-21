@@ -25,6 +25,8 @@ type Host interface {
 	// Publish publishes a block map
 	Publish(ctx context.Context, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
+	Remove(ctx context.Context, filename string) error
+
 	// GetContent get the block map specified by 'filename
 	GetContent(ctx context.Context, filename string) (BlockMap, error)
 

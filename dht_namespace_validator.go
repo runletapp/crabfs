@@ -75,7 +75,7 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return err
 	}
 
-	if recordValue.Blocks == nil || len(recordValue.Blocks) == 0 {
+	if recordValue.Blocks == nil {
 		return fmt.Errorf("Invalid block map")
 	}
 

@@ -6,6 +6,7 @@ message DHTNameRecord {
     string timestamp = 1;
     bytes data = 2;
     bytes signature = 3;
+    bool delete = 4;
 }
 
 message BlockMetadata {
