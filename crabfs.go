@@ -27,6 +27,8 @@ type crabFS struct {
 	blockstore ipfsBlockstore.Blockstore
 
 	fetcherFactory interfaces.FetcherFactory
+
+	gc interfaces.GarbageCollector
 }
 
 // New create a new CrabFS
@@ -77,6 +79,11 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 
 	blockstore := ipfsBlockstore.NewBlockstore(datastore)
 
+	gc, err := GarbageCollectorNew(settings.Context, settings.GCInterval, datastore, blockstore)
+	if err != nil {
+		return nil, err
+	}
+
 	hostFactory := HostNew
 	host, err := hostFactory(&settings, privateKey, datastore, blockstore)
 	if err != nil {
@@ -99,23 +106,35 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		blockstore: blockstore,
 
 		fetcherFactory: BasicFetcherNew,
+
+		gc: gc,
 	}
 
 	if !settings.RelayOnly {
 		go fs.background()
+
+		if err := gc.Start(); err != nil {
+			return nil, err
+		}
 	}
 
 	return fs, nil
 }
 
 func (fs *crabFS) background() {
+	locker := fs.gc.Locker()
+	locker.Lock()
 	fs.host.Reprovide(fs.settings.Context)
+	locker.Unlock()
 
 	ticker := time.NewTicker(fs.settings.ReprovideInterval)
 	for {
 		select {
 		case <-ticker.C:
+			locker := fs.gc.Locker()
+			locker.Lock()
 			fs.host.Reprovide(fs.settings.Context)
+			locker.Unlock()
 		case <-fs.settings.Context.Done():
 			return
 		}
@@ -126,21 +145,37 @@ func (fs *crabFS) Close() error {
 	return fs.datastore.Close()
 }
 
-func (fs *crabFS) Get(ctx context.Context, filename string) (io.ReadSeeker, int64, error) {
+func (fs *crabFS) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
+	locker := fs.gc.Locker()
+	locker.Lock()
+
 	blockMap, err := fs.host.GetContent(ctx, filename)
 	if err != nil {
-		return nil, 0, err
+		locker.Unlock()
+		return nil, err
 	}
 
 	fetcher, err := fs.fetcherFactory(ctx, fs, blockMap)
 	if err != nil {
-		return nil, 0, err
+		locker.Unlock()
+		return nil, err
 	}
 
-	return fetcher, fetcher.Size(), nil
+	go func() {
+		// We hold a gc locker until the fetcher is done, this way we avoid
+		// the gc messing around the fetch operation
+		<-fetcher.Context().Done()
+		locker.Unlock()
+	}()
+
+	return fetcher, nil
 }
 
 func (fs *crabFS) Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error {
+	locker := fs.gc.Locker()
+	locker.Lock()
+	defer locker.Unlock()
+
 	slicer, err := BlockSlicerNew(file, fs.settings.BlockSize)
 	if err != nil {
 		return err
@@ -174,8 +209,10 @@ func (fs *crabFS) Put(ctx context.Context, filename string, file io.Reader, mtim
 }
 
 func (fs *crabFS) Remove(ctx context.Context, filename string) error {
+	if err := fs.gc.Schedule(); err != nil {
+		return err
+	}
 	return fs.host.Remove(ctx, filename)
-	// TODO schedule garbage collector
 }
 
 func (fs *crabFS) GetID() string {
@@ -192,4 +229,8 @@ func (fs *crabFS) Blockstore() ipfsBlockstore.Blockstore {
 
 func (fs *crabFS) Host() interfaces.Host {
 	return fs.host
+}
+
+func (fs *crabFS) GarbageCollector() interfaces.GarbageCollector {
+	return fs.gc
 }

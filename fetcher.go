@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"sync"
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -18,7 +19,8 @@ var _ interfaces.Fetcher = &BasicFetcher{}
 
 // BasicFetcher single peer block fetcher
 type BasicFetcher struct {
-	ctx context.Context
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 
 	offset int64
 
@@ -31,6 +33,8 @@ type BasicFetcher struct {
 	blockMap interfaces.BlockMap
 
 	fs interfaces.Core
+
+	locker sync.Locker
 }
 
 // BasicFetcherNew creates a new basic fetcher
@@ -45,8 +49,11 @@ func BasicFetcherNew(ctx context.Context, fs interfaces.Core, blockMap interface
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	fetcher := &BasicFetcher{
-		ctx: ctx,
+		ctx:       ctx,
+		ctxCancel: cancel,
 
 		offset: 0,
 		keys:   keys,
@@ -198,4 +205,13 @@ func (fetcher *BasicFetcher) Seek(offset int64, whence int) (int64, error) {
 	fetcher.buffer.Reset()
 
 	return fetcher.offset, nil
+}
+
+func (fetcher *BasicFetcher) Close() error {
+	fetcher.ctxCancel()
+	return nil
+}
+
+func (fetcher *BasicFetcher) Context() context.Context {
+	return fetcher.ctx
 }

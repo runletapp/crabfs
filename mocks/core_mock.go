@@ -39,13 +39,12 @@ func (m *MockCore) EXPECT() *MockCoreMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCore) Get(ctx context.Context, filename string) (io.ReadSeeker, int64, error) {
+func (m *MockCore) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, filename)
-	ret0, _ := ret[0].(io.ReadSeeker)
-	ret1, _ := ret[1].(int64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(interfaces.Fetcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
@@ -136,4 +135,32 @@ func (m *MockCore) Host() interfaces.Host {
 func (mr *MockCoreMockRecorder) Host() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Host", reflect.TypeOf((*MockCore)(nil).Host))
+}
+
+// GarbageCollector mocks base method
+func (m *MockCore) GarbageCollector() interfaces.GarbageCollector {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GarbageCollector")
+	ret0, _ := ret[0].(interfaces.GarbageCollector)
+	return ret0
+}
+
+// GarbageCollector indicates an expected call of GarbageCollector
+func (mr *MockCoreMockRecorder) GarbageCollector() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GarbageCollector", reflect.TypeOf((*MockCore)(nil).GarbageCollector))
+}
+
+// Close mocks base method
+func (m *MockCore) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close
+func (mr *MockCoreMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCore)(nil).Close))
 }

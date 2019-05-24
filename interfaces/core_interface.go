@@ -11,7 +11,7 @@ import (
 // Core interface
 type Core interface {
 	// Get opens a file stream
-	Get(ctx context.Context, filename string) (io.ReadSeeker, int64, error)
+	Get(ctx context.Context, filename string) (Fetcher, error)
 
 	// Put writes a file to the storage
 	Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error
@@ -30,4 +30,10 @@ type Core interface {
 
 	// Host returns the currently used host
 	Host() Host
+
+	// GarbageCollector returns the garbage collector associated with this instance
+	GarbageCollector() GarbageCollector
+
+	// Close closes this instance and stop all children goroutines
+	Close() error
 }

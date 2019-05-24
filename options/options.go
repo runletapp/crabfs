@@ -22,6 +22,8 @@ type Settings struct {
 	Root string
 
 	ReprovideInterval time.Duration
+
+	GCInterval time.Duration
 }
 
 // Option represents a single init option
@@ -45,6 +47,8 @@ func (s *Settings) SetDefaults() error {
 	s.Root = ""
 
 	s.ReprovideInterval = 1 * time.Minute
+
+	s.GCInterval = 1 * time.Hour
 
 	return nil
 }
@@ -134,6 +138,14 @@ func Root(root string) Option {
 func ReprovideInterval(interval time.Duration) Option {
 	return func(s *Settings) error {
 		s.ReprovideInterval = interval
+		return nil
+	}
+}
+
+// GCInterval interval which the garbage collector should run
+func GCInterval(interval time.Duration) Option {
+	return func(s *Settings) error {
+		s.GCInterval = interval
 		return nil
 	}
 }

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/runletapp/crabfs/interfaces"
@@ -27,6 +29,16 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 		panic(err)
 	}
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		s := <-c
+		fmt.Println("Got signal:", s)
+		fs.Close()
+		os.Exit(0)
+	}()
+
 	log.Printf("Host id: %s\n", fs.GetID())
 	for i, addr := range fs.GetAddrs() {
 		log.Printf("Host addr [%d]: %s\n", i, addr)
@@ -38,13 +50,14 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 func reader(ctx context.Context, fs interfaces.Core, filename string) {
 	log.Printf("Looking for: %s", filename)
 
-	file, size, err := fs.Get(ctx, filename)
+	file, err := fs.Get(ctx, filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
+	defer file.Close()
 
-	log.Printf("Size: %d", size)
+	log.Printf("Size: %d", file.Size())
 
 	_, err = file.Seek(0, os.SEEK_SET)
 	if err != nil {
