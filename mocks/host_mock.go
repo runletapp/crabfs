@@ -70,46 +70,46 @@ func (mr *MockHostMockRecorder) GetSwarmPublicKey(ctx, hash interface{}) *gomock
 }
 
 // Publish mocks base method
-func (m *MockHost) Publish(ctx context.Context, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (m *MockHost) Publish(ctx context.Context, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, filename, blockMap, mtime, size)
+	ret := m.ctrl.Call(m, "Publish", ctx, bucket, filename, blockMap, mtime, size)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish
-func (mr *MockHostMockRecorder) Publish(ctx, filename, blockMap, mtime, size interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Publish(ctx, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, filename, blockMap, mtime, size)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, bucket, filename, blockMap, mtime, size)
 }
 
 // Remove mocks base method
-func (m *MockHost) Remove(ctx context.Context, filename string) error {
+func (m *MockHost) Remove(ctx context.Context, bucket, filename string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", ctx, filename)
+	ret := m.ctrl.Call(m, "Remove", ctx, bucket, filename)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockHostMockRecorder) Remove(ctx, filename interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Remove(ctx, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockHost)(nil).Remove), ctx, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockHost)(nil).Remove), ctx, bucket, filename)
 }
 
 // GetContent mocks base method
-func (m *MockHost) GetContent(ctx context.Context, filename string) (interfaces.BlockMap, error) {
+func (m *MockHost) GetContent(ctx context.Context, bucket, filename string) (interfaces.BlockMap, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContent", ctx, filename)
+	ret := m.ctrl.Call(m, "GetContent", ctx, bucket, filename)
 	ret0, _ := ret[0].(interfaces.BlockMap)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContent indicates an expected call of GetContent
-func (mr *MockHostMockRecorder) GetContent(ctx, filename interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) GetContent(ctx, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockHost)(nil).GetContent), ctx, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockHost)(nil).GetContent), ctx, bucket, filename)
 }
 
 // FindProviders mocks base method

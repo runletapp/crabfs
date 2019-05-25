@@ -145,11 +145,11 @@ func (fs *crabFS) Close() error {
 	return fs.datastore.Close()
 }
 
-func (fs *crabFS) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
+func (fs *crabFS) Get(ctx context.Context, bucket string, filename string) (interfaces.Fetcher, error) {
 	locker := fs.gc.Locker()
 	locker.Lock()
 
-	blockMap, err := fs.host.GetContent(ctx, filename)
+	blockMap, err := fs.host.GetContent(ctx, bucket, filename)
 	if err != nil {
 		locker.Unlock()
 		return nil, err
@@ -171,7 +171,7 @@ func (fs *crabFS) Get(ctx context.Context, filename string) (interfaces.Fetcher,
 	return fetcher, nil
 }
 
-func (fs *crabFS) Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error {
+func (fs *crabFS) Put(ctx context.Context, bucket string, filename string, file io.Reader, mtime time.Time) error {
 	locker := fs.gc.Locker()
 	locker.Lock()
 	defer locker.Unlock()
@@ -205,14 +205,14 @@ func (fs *crabFS) Put(ctx context.Context, filename string, file io.Reader, mtim
 		blockMeta, block, err = slicer.Next()
 	}
 
-	return fs.host.Publish(ctx, filename, blockMap, mtime, totalSize)
+	return fs.host.Publish(ctx, bucket, filename, blockMap, mtime, totalSize)
 }
 
-func (fs *crabFS) Remove(ctx context.Context, filename string) error {
+func (fs *crabFS) Remove(ctx context.Context, bucket string, filename string) error {
 	if err := fs.gc.Schedule(); err != nil {
 		return err
 	}
-	return fs.host.Remove(ctx, filename)
+	return fs.host.Remove(ctx, bucket, filename)
 }
 
 func (fs *crabFS) GetID() string {

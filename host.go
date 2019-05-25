@@ -266,7 +266,7 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (*libp
 	return pk.(*libp2pCrypto.RsaPublicKey), nil
 }
 
-func (host *hostImpl) Publish(ctx context.Context, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (host *hostImpl) Publish(ctx context.Context, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
@@ -303,7 +303,7 @@ func (host *hostImpl) Publish(ctx context.Context, filename string, blockMap int
 		}
 	}
 
-	bucketFilename := path.Join(host.settings.BucketName, filename)
+	bucketFilename := path.Join(bucket, filename)
 	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
 
 	return host.dhtPutValue(ctx, key, value)
@@ -329,8 +329,8 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-func (host *hostImpl) GetContent(ctx context.Context, filename string) (interfaces.BlockMap, error) {
-	bucketFilename := path.Join(host.settings.BucketName, filename)
+func (host *hostImpl) GetContent(ctx context.Context, bucket string, filename string) (interfaces.BlockMap, error) {
+	bucketFilename := path.Join(bucket, filename)
 	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
 	data, err := host.dht.GetValue(ctx, key)
 
@@ -393,7 +393,7 @@ func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.Block
 	return stream, stream.Close()
 }
 
-func (host *hostImpl) Remove(ctx context.Context, filename string) error {
+func (host *hostImpl) Remove(ctx context.Context, bucket string, filename string) error {
 	// Create a new record to replace the old one,
 	// remove all blocks and set the delete flag to true
 	record := &pb.DHTNameRecord{
@@ -426,7 +426,7 @@ func (host *hostImpl) Remove(ctx context.Context, filename string) error {
 		return err
 	}
 
-	bucketFilename := path.Join(host.settings.BucketName, filename)
+	bucketFilename := path.Join(bucket, filename)
 	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
 
 	return host.dhtPutValue(ctx, key, value)

@@ -10,7 +10,6 @@ import (
 // Settings init settings
 type Settings struct {
 	Context        context.Context
-	BucketName     string
 	Port           uint
 	BootstrapPeers []string
 	RelayOnly      bool
@@ -35,7 +34,6 @@ var DefaultBootstrapPeers = []string{}
 // SetDefaults set the default values
 func (s *Settings) SetDefaults() error {
 	s.Context = context.Background()
-	s.BucketName = "crabfs"
 	s.Port = 0
 	s.RelayOnly = false
 	s.PrivateKey = nil
@@ -65,14 +63,6 @@ func Context(ctx context.Context) Option {
 func Port(port uint) Option {
 	return func(s *Settings) error {
 		s.Port = port
-		return nil
-	}
-}
-
-// BucketName option
-func BucketName(name string) Option {
-	return func(s *Settings) error {
-		s.BucketName = name
 		return nil
 	}
 }

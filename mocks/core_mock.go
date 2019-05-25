@@ -39,46 +39,46 @@ func (m *MockCore) EXPECT() *MockCoreMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCore) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
+func (m *MockCore) Get(ctx context.Context, bucket, filename string) (interfaces.Fetcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", ctx, filename)
+	ret := m.ctrl.Call(m, "Get", ctx, bucket, filename)
 	ret0, _ := ret[0].(interfaces.Fetcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockCoreMockRecorder) Get(ctx, filename interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Get(ctx, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, bucket, filename)
 }
 
 // Put mocks base method
-func (m *MockCore) Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error {
+func (m *MockCore) Put(ctx context.Context, bucket, filename string, file io.Reader, mtime time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", ctx, filename, file, mtime)
+	ret := m.ctrl.Call(m, "Put", ctx, bucket, filename, file, mtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put
-func (mr *MockCoreMockRecorder) Put(ctx, filename, file, mtime interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Put(ctx, bucket, filename, file, mtime interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCore)(nil).Put), ctx, filename, file, mtime)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCore)(nil).Put), ctx, bucket, filename, file, mtime)
 }
 
 // Remove mocks base method
-func (m *MockCore) Remove(ctx context.Context, filename string) error {
+func (m *MockCore) Remove(ctx context.Context, bucket, filename string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", ctx, filename)
+	ret := m.ctrl.Call(m, "Remove", ctx, bucket, filename)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockCoreMockRecorder) Remove(ctx, filename interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Remove(ctx, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockCore)(nil).Remove), ctx, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockCore)(nil).Remove), ctx, bucket, filename)
 }
 
 // GetID mocks base method

@@ -119,7 +119,7 @@ func TestHostPublishNoPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostPublishPeers(t *testing.T) {
@@ -139,7 +139,7 @@ func TestHostPublishPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostReprovideNoPeers(t *testing.T) {
@@ -186,7 +186,7 @@ func TestHostReprovideWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	assert.Nil(host.Reprovide(context.Background()))
 }
@@ -208,7 +208,7 @@ func TestHostFindProvidersWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	provider := <-ch
@@ -232,7 +232,7 @@ func TestHostFindProvidersWithNoPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	select {

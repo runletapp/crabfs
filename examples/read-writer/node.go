@@ -21,7 +21,6 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 	fs, err := crabfs.New(
 		options.Root(mountLocation),
 		options.Context(ctx),
-		options.BucketName("exampleBkt"),
 		options.BootstrapPeers([]string{bootstrapAddr}),
 		options.PrivateKey(privateKey),
 	)
@@ -50,7 +49,7 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 func reader(ctx context.Context, fs interfaces.Core, filename string) {
 	log.Printf("Looking for: %s", filename)
 
-	file, err := fs.Get(ctx, filename)
+	file, err := fs.Get(ctx, "exampleBkt", filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -90,7 +89,7 @@ func writer(ctx context.Context, fs interfaces.Core, filename string) {
 
 	log.Printf("Saving...")
 
-	if err := fs.Put(ctx, filename, file, time.Now()); err != nil {
+	if err := fs.Put(ctx, "exampleBkt", filename, file, time.Now()); err != nil {
 		panic(err)
 	}
 

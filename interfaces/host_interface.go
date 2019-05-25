@@ -23,12 +23,12 @@ type Host interface {
 	GetSwarmPublicKey(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error)
 
 	// Publish publishes a block map
-	Publish(ctx context.Context, filename string, blockMap BlockMap, mtime time.Time, size int64) error
+	Publish(ctx context.Context, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
-	Remove(ctx context.Context, filename string) error
+	Remove(ctx context.Context, bucket string, filename string) error
 
 	// GetContent get the block map specified by 'filename
-	GetContent(ctx context.Context, filename string) (BlockMap, error)
+	GetContent(ctx context.Context, bucket string, filename string) (BlockMap, error)
 
 	// FindProviders find the closest providers of cid
 	FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo
