@@ -146,7 +146,7 @@ func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, private
 
 func (host *hostImpl) Announce() error {
 	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
-	discovery.Advertise(host.settings.Context, routingDiscovery, host.publicKeyHash)
+	discovery.Advertise(host.settings.Context, routingDiscovery, "crabfs")
 
 	if host.dht.RoutingTable().Size() > 0 {
 		if err := host.putPublicKey(); err != nil {
