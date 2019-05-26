@@ -1,9 +1,7 @@
 package options
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"time"
 )
 
@@ -13,8 +11,6 @@ type Settings struct {
 	Port           uint
 	BootstrapPeers []string
 	RelayOnly      bool
-
-	PrivateKey io.Reader
 
 	BlockSize int64
 
@@ -36,7 +32,6 @@ func (s *Settings) SetDefaults() error {
 	s.Context = context.Background()
 	s.Port = 0
 	s.RelayOnly = false
-	s.PrivateKey = nil
 
 	s.BootstrapPeers = DefaultBootstrapPeers
 
@@ -87,23 +82,6 @@ func BootstrapPeersAppend(peers []string) Option {
 func RelayOnly(relayOnly bool) Option {
 	return func(s *Settings) error {
 		s.RelayOnly = relayOnly
-		return nil
-	}
-}
-
-// PrivateKey option
-func PrivateKey(reader io.Reader) Option {
-	return func(s *Settings) error {
-		s.PrivateKey = reader
-		return nil
-	}
-}
-
-// PrivateKeyFromBytes option
-func PrivateKeyFromBytes(privateKey []byte) Option {
-	return func(s *Settings) error {
-		r := bytes.NewReader(privateKey)
-		s.PrivateKey = r
 		return nil
 	}
 }

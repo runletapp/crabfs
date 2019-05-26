@@ -39,46 +39,46 @@ func (m *MockCore) EXPECT() *MockCoreMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCore) Get(ctx context.Context, bucket, filename string) (interfaces.Fetcher, error) {
+func (m *MockCore) Get(ctx context.Context, publicKey interfaces.PubKey, bucket, filename string) (interfaces.Fetcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", ctx, bucket, filename)
+	ret := m.ctrl.Call(m, "Get", ctx, publicKey, bucket, filename)
 	ret0, _ := ret[0].(interfaces.Fetcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockCoreMockRecorder) Get(ctx, bucket, filename interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Get(ctx, publicKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, bucket, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, publicKey, bucket, filename)
 }
 
 // Put mocks base method
-func (m *MockCore) Put(ctx context.Context, bucket, filename string, file io.Reader, mtime time.Time) error {
+func (m *MockCore) Put(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string, file io.Reader, mtime time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", ctx, bucket, filename, file, mtime)
+	ret := m.ctrl.Call(m, "Put", ctx, privateKey, bucket, filename, file, mtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put
-func (mr *MockCoreMockRecorder) Put(ctx, bucket, filename, file, mtime interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Put(ctx, privateKey, bucket, filename, file, mtime interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCore)(nil).Put), ctx, bucket, filename, file, mtime)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCore)(nil).Put), ctx, privateKey, bucket, filename, file, mtime)
 }
 
 // Remove mocks base method
-func (m *MockCore) Remove(ctx context.Context, bucket, filename string) error {
+func (m *MockCore) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", ctx, bucket, filename)
+	ret := m.ctrl.Call(m, "Remove", ctx, privateKey, bucket, filename)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockCoreMockRecorder) Remove(ctx, bucket, filename interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Remove(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockCore)(nil).Remove), ctx, bucket, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockCore)(nil).Remove), ctx, privateKey, bucket, filename)
 }
 
 // GetID mocks base method
@@ -163,4 +163,33 @@ func (m *MockCore) Close() error {
 func (mr *MockCoreMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCore)(nil).Close))
+}
+
+// WithBucket mocks base method
+func (m *MockCore) WithBucket(privateKey interfaces.PrivKey, bucket string) (interfaces.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithBucket", privateKey, bucket)
+	ret0, _ := ret[0].(interfaces.Bucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WithBucket indicates an expected call of WithBucket
+func (mr *MockCoreMockRecorder) WithBucket(privateKey, bucket interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithBucket", reflect.TypeOf((*MockCore)(nil).WithBucket), privateKey, bucket)
+}
+
+// PublishPublicKey mocks base method
+func (m *MockCore) PublishPublicKey(publicKey interfaces.PubKey) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishPublicKey", publicKey)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PublishPublicKey indicates an expected call of PublishPublicKey
+func (mr *MockCoreMockRecorder) PublishPublicKey(publicKey interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishPublicKey", reflect.TypeOf((*MockCore)(nil).PublishPublicKey), publicKey)
 }

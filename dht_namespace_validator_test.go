@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
 	"github.com/stretchr/testify/assert"
 
@@ -80,7 +79,7 @@ func TestDHTValidatorInvalidRecordSignatureVerify(t *testing.T) {
 
 	_, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -103,7 +102,7 @@ func TestDHTValidatorInvalidRecordSignatureVerify2(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -134,7 +133,7 @@ func TestDHTValidatorInvalidRecordValue(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -162,7 +161,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapNil(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -195,7 +194,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapZero(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -228,7 +227,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidCid(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -264,7 +263,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidTotalSize(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -310,7 +309,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidMtime(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 
@@ -353,7 +352,7 @@ func TestDHTValidatorValid(t *testing.T) {
 
 	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
 
-	pkResolver := func(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
 		return pk, nil
 	}
 

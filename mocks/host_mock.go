@@ -11,7 +11,6 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	go_libp2p_crypto "github.com/libp2p/go-libp2p-crypto"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/runletapp/crabfs/interfaces"
 	protos "github.com/runletapp/crabfs/protos"
@@ -55,10 +54,10 @@ func (mr *MockHostMockRecorder) Announce() *gomock.Call {
 }
 
 // GetSwarmPublicKey mocks base method
-func (m *MockHost) GetSwarmPublicKey(ctx context.Context, hash string) (*go_libp2p_crypto.RsaPublicKey, error) {
+func (m *MockHost) GetSwarmPublicKey(ctx context.Context, hash string) (interfaces.PubKey, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSwarmPublicKey", ctx, hash)
-	ret0, _ := ret[0].(*go_libp2p_crypto.RsaPublicKey)
+	ret0, _ := ret[0].(interfaces.PubKey)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,46 +69,46 @@ func (mr *MockHostMockRecorder) GetSwarmPublicKey(ctx, hash interface{}) *gomock
 }
 
 // Publish mocks base method
-func (m *MockHost) Publish(ctx context.Context, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (m *MockHost) Publish(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, bucket, filename, blockMap, mtime, size)
+	ret := m.ctrl.Call(m, "Publish", ctx, privateKey, bucket, filename, blockMap, mtime, size)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish
-func (mr *MockHostMockRecorder) Publish(ctx, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Publish(ctx, privateKey, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, bucket, filename, blockMap, mtime, size)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, privateKey, bucket, filename, blockMap, mtime, size)
 }
 
 // Remove mocks base method
-func (m *MockHost) Remove(ctx context.Context, bucket, filename string) error {
+func (m *MockHost) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", ctx, bucket, filename)
+	ret := m.ctrl.Call(m, "Remove", ctx, privateKey, bucket, filename)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockHostMockRecorder) Remove(ctx, bucket, filename interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Remove(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockHost)(nil).Remove), ctx, bucket, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockHost)(nil).Remove), ctx, privateKey, bucket, filename)
 }
 
 // GetContent mocks base method
-func (m *MockHost) GetContent(ctx context.Context, bucket, filename string) (interfaces.BlockMap, error) {
+func (m *MockHost) GetContent(ctx context.Context, publicKey interfaces.PubKey, bucket, filename string) (interfaces.BlockMap, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContent", ctx, bucket, filename)
+	ret := m.ctrl.Call(m, "GetContent", ctx, publicKey, bucket, filename)
 	ret0, _ := ret[0].(interfaces.BlockMap)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContent indicates an expected call of GetContent
-func (mr *MockHostMockRecorder) GetContent(ctx, bucket, filename interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) GetContent(ctx, publicKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockHost)(nil).GetContent), ctx, bucket, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockHost)(nil).GetContent), ctx, publicKey, bucket, filename)
 }
 
 // FindProviders mocks base method
@@ -181,4 +180,18 @@ func (m *MockHost) Reprovide(ctx context.Context) error {
 func (mr *MockHostMockRecorder) Reprovide(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reprovide", reflect.TypeOf((*MockHost)(nil).Reprovide), ctx)
+}
+
+// PutPublicKey mocks base method
+func (m *MockHost) PutPublicKey(publicKey interfaces.PubKey) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutPublicKey", publicKey)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutPublicKey indicates an expected call of PutPublicKey
+func (mr *MockHostMockRecorder) PutPublicKey(publicKey interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutPublicKey", reflect.TypeOf((*MockHost)(nil).PutPublicKey), publicKey)
 }

@@ -23,12 +23,10 @@ func setUpHostTestWithDsAndBs(t *testing.T) (interfaces.Host, ipfsDatastore.Data
 		Context: context.Background(),
 	}
 
-	privKey, _, _ := GenerateKeyPairWithHash(t)
-
 	ds := ipfsDatastore.NewMapDatastore()
 	bs := ipfsBlockstore.NewBlockstore(ds)
 
-	host, err := HostNew(settings, privKey, ds, bs)
+	host, err := HostNew(settings, ds, bs)
 	assert.Nil(err)
 
 	return host, ds, bs, ctrl
@@ -47,8 +45,6 @@ func setUpHostTestWithRelay(t *testing.T) (interfaces.Host, ipfsDatastore.Datast
 		Context: context.Background(),
 	}
 
-	privKey, _, _ := GenerateKeyPairWithHash(t)
-
 	ds := ipfsDatastore.NewMapDatastore()
 	bs := ipfsBlockstore.NewBlockstore(ds)
 
@@ -57,7 +53,7 @@ func setUpHostTestWithRelay(t *testing.T) (interfaces.Host, ipfsDatastore.Datast
 
 	settings.BootstrapPeers = relay.GetAddrs()
 
-	host, err := HostNew(settings, privKey, ds, bs)
+	host, err := HostNew(settings, ds, bs)
 	assert.Nil(err)
 
 	return host, ds, bs, ctrl
@@ -65,19 +61,6 @@ func setUpHostTestWithRelay(t *testing.T) (interfaces.Host, ipfsDatastore.Datast
 
 func setDownHostTest(ctrl *gomock.Controller) {
 	setDownBasicTest(ctrl)
-}
-
-func TestHostPrivKeyEmpty(t *testing.T) {
-	assert := assert.New(t)
-	ctrl := setUpBasicTest(t)
-	defer setDownBasicTest(ctrl)
-
-	settings := &options.Settings{
-		Context: context.Background(),
-	}
-
-	_, err := HostNew(settings, nil, nil, nil)
-	assert.Equal(ErrInvalidPrivateKey, err)
 }
 
 func TestHostValidID(t *testing.T) {
@@ -119,7 +102,10 @@ func TestHostPublishNoPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
+	assert.Nil(host.PutPublicKey(pubKey))
+
+	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostPublishPeers(t *testing.T) {
@@ -139,7 +125,10 @@ func TestHostPublishPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
+	assert.Nil(host.PutPublicKey(pubKey))
+
+	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostReprovideNoPeers(t *testing.T) {
@@ -186,7 +175,10 @@ func TestHostReprovideWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
+	assert.Nil(host.PutPublicKey(pubKey))
+
+	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	assert.Nil(host.Reprovide(context.Background()))
 }
@@ -208,7 +200,10 @@ func TestHostFindProvidersWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
+	assert.Nil(host.PutPublicKey(pubKey))
+
+	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	provider := <-ch
@@ -232,7 +227,10 @@ func TestHostFindProvidersWithNoPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	assert.Nil(host.Publish(context.Background(), "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
+	assert.Nil(host.PutPublicKey(pubKey))
+
+	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	select {

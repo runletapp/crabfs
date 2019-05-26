@@ -20,15 +20,16 @@ type Host interface {
 	Announce() error
 
 	// GetSwarmPublicKey get the swarm public key from the keystore
-	GetSwarmPublicKey(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error)
+	GetSwarmPublicKey(ctx context.Context, hash string) (PubKey, error)
 
 	// Publish publishes a block map
-	Publish(ctx context.Context, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
+	Publish(ctx context.Context, privateKey PrivKey, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
-	Remove(ctx context.Context, bucket string, filename string) error
+	// Remove removes content from the network
+	Remove(ctx context.Context, privateKey PrivKey, bucket string, filename string) error
 
 	// GetContent get the block map specified by 'filename
-	GetContent(ctx context.Context, bucket string, filename string) (BlockMap, error)
+	GetContent(ctx context.Context, publicKey PubKey, bucket string, filename string) (BlockMap, error)
 
 	// FindProviders find the closest providers of cid
 	FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo
@@ -44,6 +45,9 @@ type Host interface {
 
 	// Reprovide republish blocks and block metas to the network
 	Reprovide(ctx context.Context) error
+
+	// PutPublicKey broadcast this public key to the network
+	PutPublicKey(publicKey PubKey) error
 }
 
 // HostFactory type

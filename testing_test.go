@@ -32,7 +32,7 @@ func CreateBlockFromString(data string) blocks.Block {
 func GenerateKeyPairWithHash(t *testing.T) (*libp2pCrypto.RsaPrivateKey, *libp2pCrypto.RsaPublicKey, multihash.Multihash) {
 	assert := assert.New(t)
 
-	privKey, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+	privKey, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(1024, rand.Reader)
 	assert.Nil(err)
 
 	data, err := libp2pCrypto.MarshalPublicKey(publicKey.(*libp2pCrypto.RsaPublicKey))

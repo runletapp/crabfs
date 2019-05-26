@@ -15,7 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multihash"
+	multihash "github.com/multiformats/go-multihash"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
@@ -46,11 +46,6 @@ type hostImpl struct {
 	p2pHost libp2pHost.Host
 	dht     *libp2pDht.IpfsDHT
 
-	privateKey *libp2pCrypto.RsaPrivateKey
-
-	publicKeyData []byte
-	publicKeyHash string
-
 	ds ipfsDatastore.Batching
 
 	settings *options.Settings
@@ -59,7 +54,7 @@ type hostImpl struct {
 }
 
 // HostNew creates a new host
-func HostNew(settings *options.Settings, privateKey *libp2pCrypto.RsaPrivateKey, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
+func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
 	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", settings.Port))
 	if err != nil {
 		return nil, err
@@ -83,31 +78,13 @@ func HostNew(settings *options.Settings, privateKey *libp2pCrypto.RsaPrivateKey,
 		return nil, err
 	}
 
-	return HostNewWithP2P(settings, p2pHost, privateKey, ds, blockstore)
+	return HostNewWithP2P(settings, p2pHost, ds, blockstore)
 }
 
 // HostNewWithP2P creates a new host with an underlying p2p host
-func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, privateKey *libp2pCrypto.RsaPrivateKey, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
-	if privateKey == nil {
-		return nil, ErrInvalidPrivateKey
-	}
-
-	publicKeyData, err := libp2pCrypto.MarshalPublicKey(privateKey.GetPublic())
-	if err != nil {
-		return nil, err
-	}
-	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
-	if err != nil {
-		return nil, err
-	}
-
+func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
 	newHost := &hostImpl{
 		settings: settings,
-
-		privateKey: privateKey,
-
-		publicKeyHash: publicKeyHash.String(),
-		publicKeyData: publicKeyData,
 
 		ds:         ds,
 		blockstore: blockstore,
@@ -148,21 +125,20 @@ func (host *hostImpl) Announce() error {
 	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
 	discovery.Advertise(host.settings.Context, routingDiscovery, "crabfs")
 
-	if host.dht.RoutingTable().Size() > 0 {
-		if err := host.putPublicKey(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-func (host *hostImpl) putPublicKey() error {
-	if err := host.dht.PutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", host.publicKeyHash), host.publicKeyData); err != nil {
+func (host *hostImpl) PutPublicKey(publicKey interfaces.PubKey) error {
+	publicKeyData, err := libp2pCrypto.MarshalPublicKey(publicKey)
+	if err != nil {
+		return err
+	}
+	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return host.dhtPutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", publicKeyHash.String()), publicKeyData)
 }
 
 func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
@@ -208,8 +184,6 @@ func (host *hostImpl) Reprovide(ctx context.Context) error {
 		host.dhtPutValue(ctx, result.Key, result.Value)
 	}
 
-	host.putPublicKey()
-
 	ch, err := host.blockstore.AllKeysChan(ctx)
 	if err != nil {
 		return err
@@ -252,7 +226,7 @@ func (host *hostImpl) GetAddrs() []string {
 	return addrs
 }
 
-func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (*libp2pCrypto.RsaPublicKey, error) {
+func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (interfaces.PubKey, error) {
 	data, err := host.dht.GetValue(ctx, fmt.Sprintf("/crabfs_pk/%s", hash))
 	if err != nil {
 		return nil, err
@@ -263,10 +237,10 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (*libp
 		return nil, err
 	}
 
-	return pk.(*libp2pCrypto.RsaPublicKey), nil
+	return pk.(interfaces.PubKey), nil
 }
 
-func (host *hostImpl) Publish(ctx context.Context, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (host *hostImpl) Publish(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
@@ -284,7 +258,7 @@ func (host *hostImpl) Publish(ctx context.Context, bucket string, filename strin
 
 	record.Data = data
 
-	signature, err := host.privateKey.Sign(data)
+	signature, err := privateKey.Sign(data)
 	if err != nil {
 		return err
 	}
@@ -304,7 +278,13 @@ func (host *hostImpl) Publish(ctx context.Context, bucket string, filename strin
 	}
 
 	bucketFilename := path.Join(bucket, filename)
-	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+
+	publicKeyHash, err := PublicKeyHashFromPrivateKey(privateKey)
+	if err != nil {
+		return err
+	}
+
+	key := KeyFromFilename(publicKeyHash, bucketFilename)
 
 	return host.dhtPutValue(ctx, key, value)
 }
@@ -329,9 +309,14 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-func (host *hostImpl) GetContent(ctx context.Context, bucket string, filename string) (interfaces.BlockMap, error) {
+func (host *hostImpl) GetContent(ctx context.Context, publicKey interfaces.PubKey, bucket string, filename string) (interfaces.BlockMap, error) {
 	bucketFilename := path.Join(bucket, filename)
-	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+	publicKeyHash, err := PublicKeyHashFromPublicKey(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	key := KeyFromFilename(publicKeyHash, bucketFilename)
 	data, err := host.dht.GetValue(ctx, key)
 
 	// Not found in remote query, try local only
@@ -393,7 +378,7 @@ func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.Block
 	return stream, stream.Close()
 }
 
-func (host *hostImpl) Remove(ctx context.Context, bucket string, filename string) error {
+func (host *hostImpl) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string) error {
 	// Create a new record to replace the old one,
 	// remove all blocks and set the delete flag to true
 	record := &pb.DHTNameRecord{
@@ -414,7 +399,7 @@ func (host *hostImpl) Remove(ctx context.Context, bucket string, filename string
 
 	record.Data = data
 
-	signature, err := host.privateKey.Sign(data)
+	signature, err := privateKey.Sign(data)
 	if err != nil {
 		return err
 	}
@@ -427,7 +412,12 @@ func (host *hostImpl) Remove(ctx context.Context, bucket string, filename string
 	}
 
 	bucketFilename := path.Join(bucket, filename)
-	key := KeyFromFilename(host.publicKeyHash, bucketFilename)
+	publicKeyHash, err := PublicKeyHashFromPrivateKey(privateKey)
+	if err != nil {
+		return err
+	}
+
+	key := KeyFromFilename(publicKeyHash, bucketFilename)
 
 	return host.dhtPutValue(ctx, key, value)
 }

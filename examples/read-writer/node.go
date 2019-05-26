@@ -17,12 +17,11 @@ import (
 	"github.com/runletapp/crabfs"
 )
 
-func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, privateKey io.Reader) interfaces.Core {
+func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string) interfaces.Core {
 	fs, err := crabfs.New(
 		options.Root(mountLocation),
 		options.Context(ctx),
 		options.BootstrapPeers([]string{bootstrapAddr}),
-		options.PrivateKey(privateKey),
 	)
 	if err != nil {
 		panic(err)
@@ -46,10 +45,10 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string, 
 	return fs
 }
 
-func reader(ctx context.Context, fs interfaces.Core, filename string) {
+func reader(ctx context.Context, fs interfaces.Bucket, filename string) {
 	log.Printf("Looking for: %s", filename)
 
-	file, err := fs.Get(ctx, "exampleBkt", filename)
+	file, err := fs.Get(ctx, filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -69,7 +68,7 @@ func reader(ctx context.Context, fs interfaces.Core, filename string) {
 	}
 }
 
-func writer(ctx context.Context, fs interfaces.Core, filename string) {
+func writer(ctx context.Context, fs interfaces.Bucket, filename string) {
 	file := &bytes.Buffer{}
 
 	log.Printf("Reading from stdin. Press Ctrl+D to stop and close")
@@ -89,7 +88,7 @@ func writer(ctx context.Context, fs interfaces.Core, filename string) {
 
 	log.Printf("Saving...")
 
-	if err := fs.Put(ctx, "exampleBkt", filename, file, time.Now()); err != nil {
+	if err := fs.Put(ctx, filename, file, time.Now()); err != nil {
 		panic(err)
 	}
 
@@ -115,7 +114,7 @@ func main() {
 		}
 		defer file.Close()
 
-		generator, err := crabfs.GenerateKeyPair()
+		generator, err := crabfs.GenerateKeyPairReader()
 		if err != nil {
 			panic(err)
 		}
@@ -128,22 +127,29 @@ func main() {
 
 	log.Printf("Starting node...")
 
-	var psk io.Reader
+	var psk interfaces.PrivKey
 	if *privateKeyFile != "" {
 		pskFile, err := os.Open(*privateKeyFile)
 		if err != nil {
 			panic(err)
 		}
 		defer pskFile.Close()
-		psk = pskFile
+		psk, err = crabfs.ReadPrivateKey(pskFile)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	fs := nodeStart(ctx, *bootstrapPeer, *mountLocation, psk)
+	fs := nodeStart(ctx, *bootstrapPeer, *mountLocation)
+	bucket, err := fs.WithBucket(psk, "exampleBkt")
+	if err != nil {
+		panic(err)
+	}
 
 	if *readFile != "" {
-		reader(ctx, fs, *readFile)
+		reader(ctx, bucket, *readFile)
 	} else if *writeFile != "" {
-		writer(ctx, fs, *writeFile)
+		writer(ctx, bucket, *writeFile)
 	}
 
 	<-ctx.Done()
