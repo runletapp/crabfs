@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/GustavoKatel/SyncEvent v0.0.1
+	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1
@@ -15,7 +16,6 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v0.0.1
 	github.com/libp2p/go-libp2p v0.0.12
 	github.com/libp2p/go-libp2p-circuit v0.0.4
-	github.com/libp2p/go-libp2p-crypto v0.0.2
 	github.com/libp2p/go-libp2p-discovery v0.0.1
 	github.com/libp2p/go-libp2p-host v0.0.1
 	github.com/libp2p/go-libp2p-kad-dht v0.0.7
@@ -24,6 +24,7 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.0.2
 	github.com/libp2p/go-libp2p-record v0.0.1
 	github.com/libp2p/go-libp2p-routing v0.0.1
+	github.com/mr-tron/base58 v1.1.1 // indirect
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/multiformats/go-multihash v0.0.1
 	github.com/stretchr/testify v1.3.0

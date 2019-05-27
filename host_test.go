@@ -102,8 +102,9 @@ func TestHostPublishNoPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
-	assert.Nil(host.PutPublicKey(pubKey))
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
 	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
@@ -125,8 +126,9 @@ func TestHostPublishPeers(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
-	assert.Nil(host.PutPublicKey(pubKey))
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
 	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
@@ -175,8 +177,9 @@ func TestHostReprovideWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
-	assert.Nil(host.PutPublicKey(pubKey))
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
 	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
@@ -200,8 +203,9 @@ func TestHostFindProvidersWithPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
-	assert.Nil(host.PutPublicKey(pubKey))
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
 	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
@@ -227,8 +231,9 @@ func TestHostFindProvidersWithNoPeersAndContent(t *testing.T) {
 		Cid:   block.Cid().Bytes(),
 	}
 
-	privKey, pubKey, _ := GenerateKeyPairWithHash(t)
-	assert.Nil(host.PutPublicKey(pubKey))
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
 	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 

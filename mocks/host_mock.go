@@ -12,6 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
+	crypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	protos "github.com/runletapp/crabfs/protos"
 )
@@ -54,10 +55,10 @@ func (mr *MockHostMockRecorder) Announce() *gomock.Call {
 }
 
 // GetSwarmPublicKey mocks base method
-func (m *MockHost) GetSwarmPublicKey(ctx context.Context, hash string) (interfaces.PubKey, error) {
+func (m *MockHost) GetSwarmPublicKey(ctx context.Context, hash string) (crypto.PubKey, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSwarmPublicKey", ctx, hash)
-	ret0, _ := ret[0].(interfaces.PubKey)
+	ret0, _ := ret[0].(crypto.PubKey)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -69,7 +70,7 @@ func (mr *MockHostMockRecorder) GetSwarmPublicKey(ctx, hash interface{}) *gomock
 }
 
 // Publish mocks base method
-func (m *MockHost) Publish(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (m *MockHost) Publish(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Publish", ctx, privateKey, bucket, filename, blockMap, mtime, size)
 	ret0, _ := ret[0].(error)
@@ -83,7 +84,7 @@ func (mr *MockHostMockRecorder) Publish(ctx, privateKey, bucket, filename, block
 }
 
 // Remove mocks base method
-func (m *MockHost) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string) error {
+func (m *MockHost) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove", ctx, privateKey, bucket, filename)
 	ret0, _ := ret[0].(error)
@@ -97,7 +98,7 @@ func (mr *MockHostMockRecorder) Remove(ctx, privateKey, bucket, filename interfa
 }
 
 // GetContent mocks base method
-func (m *MockHost) GetContent(ctx context.Context, publicKey interfaces.PubKey, bucket, filename string) (interfaces.BlockMap, error) {
+func (m *MockHost) GetContent(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (interfaces.BlockMap, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContent", ctx, publicKey, bucket, filename)
 	ret0, _ := ret[0].(interfaces.BlockMap)
@@ -183,7 +184,7 @@ func (mr *MockHostMockRecorder) Reprovide(ctx interface{}) *gomock.Call {
 }
 
 // PutPublicKey mocks base method
-func (m *MockHost) PutPublicKey(publicKey interfaces.PubKey) error {
+func (m *MockHost) PutPublicKey(publicKey crypto.PubKey) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutPublicKey", publicKey)
 	ret0, _ := ret[0].(error)

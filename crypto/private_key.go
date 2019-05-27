@@ -1,14 +1,13 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"io"
-	"io/ioutil"
 )
 
 var _ PrivKey = &privKeyImpl{}
@@ -20,14 +19,9 @@ type privKeyImpl struct {
 	hash []byte
 }
 
-// UnmarshallPrivateKey parse a private key from bytes generated with PrivKey.Marshall
-func UnmarshallPrivateKey(r io.Reader) (PrivKey, error) {
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := x509.ParsePKCS1PrivateKey(data)
+// UnmarshalPrivateKey parse a private key from bytes generated with PrivKey.Marshal
+func UnmarshalPrivateKey(b []byte) (PrivKey, error) {
+	key, err := x509.ParsePKCS1PrivateKey(b)
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +35,11 @@ func privateKeyFromRSA(internalPk *rsa.PrivateKey) (PrivKey, error) {
 	}
 
 	hash := sha256.New()
-	data, err := pk.Marshall()
+	data, err := pk.Marshal()
 	if err != nil {
 		return nil, err
 	}
-	_, err = io.Copy(hash, data)
+	_, err = hash.Write(data)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +68,10 @@ func (pvk *privKeyImpl) GetPublic() PubKey {
 	return pvk.pub
 }
 
-func (pvk *privKeyImpl) Marshall() (io.Reader, error) {
+func (pvk *privKeyImpl) Marshal() ([]byte, error) {
 	data := x509.MarshalPKCS1PrivateKey(pvk.internalPk)
 
-	return bytes.NewReader(data), nil
+	return data, nil
 }
 
 func (pvk *privKeyImpl) Decrypt(cipherText []byte, label []byte) ([]byte, error) {
@@ -91,4 +85,8 @@ func (pvk *privKeyImpl) Sign(data []byte) ([]byte, error) {
 
 func (pvk *privKeyImpl) Hash() []byte {
 	return pvk.hash
+}
+
+func (pvk *privKeyImpl) HashString() string {
+	return hex.EncodeToString(pvk.hash)
 }

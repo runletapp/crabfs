@@ -15,7 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/multiformats/go-multiaddr"
-	multihash "github.com/multiformats/go-multihash"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
@@ -24,7 +24,6 @@ import (
 	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
-	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
 	libp2pDht "github.com/libp2p/go-libp2p-kad-dht"
@@ -128,17 +127,13 @@ func (host *hostImpl) Announce() error {
 	return nil
 }
 
-func (host *hostImpl) PutPublicKey(publicKey interfaces.PubKey) error {
-	publicKeyData, err := libp2pCrypto.MarshalPublicKey(publicKey)
-	if err != nil {
-		return err
-	}
-	publicKeyHash, err := multihash.Sum(publicKeyData, multihash.SHA3_256, -1)
+func (host *hostImpl) PutPublicKey(publicKey crabfsCrypto.PubKey) error {
+	publicKeyData, err := publicKey.Marshal()
 	if err != nil {
 		return err
 	}
 
-	return host.dhtPutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", publicKeyHash.String()), publicKeyData)
+	return host.dhtPutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", publicKey.HashString()), publicKeyData)
 }
 
 func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
@@ -226,21 +221,21 @@ func (host *hostImpl) GetAddrs() []string {
 	return addrs
 }
 
-func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (interfaces.PubKey, error) {
+func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
 	data, err := host.dht.GetValue(ctx, fmt.Sprintf("/crabfs_pk/%s", hash))
 	if err != nil {
 		return nil, err
 	}
 
-	pk, err := libp2pCrypto.UnmarshalPublicKey(data)
+	pk, err := crabfsCrypto.UnmarshalPublicKey(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return pk.(interfaces.PubKey), nil
+	return pk, nil
 }
 
-func (host *hostImpl) Publish(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
@@ -279,10 +274,7 @@ func (host *hostImpl) Publish(ctx context.Context, privateKey interfaces.PrivKey
 
 	bucketFilename := path.Join(bucket, filename)
 
-	publicKeyHash, err := PublicKeyHashFromPrivateKey(privateKey)
-	if err != nil {
-		return err
-	}
+	publicKeyHash := privateKey.GetPublic().HashString()
 
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
 
@@ -309,12 +301,9 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-func (host *hostImpl) GetContent(ctx context.Context, publicKey interfaces.PubKey, bucket string, filename string) (interfaces.BlockMap, error) {
+func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (interfaces.BlockMap, error) {
 	bucketFilename := path.Join(bucket, filename)
-	publicKeyHash, err := PublicKeyHashFromPublicKey(publicKey)
-	if err != nil {
-		return nil, err
-	}
+	publicKeyHash := publicKey.HashString()
 
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
 	data, err := host.dht.GetValue(ctx, key)
@@ -378,7 +367,7 @@ func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.Block
 	return stream, stream.Close()
 }
 
-func (host *hostImpl) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string) error {
+func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {
 	// Create a new record to replace the old one,
 	// remove all blocks and set the delete flag to true
 	record := &pb.DHTNameRecord{
@@ -412,10 +401,7 @@ func (host *hostImpl) Remove(ctx context.Context, privateKey interfaces.PrivKey,
 	}
 
 	bucketFilename := path.Join(bucket, filename)
-	publicKeyHash, err := PublicKeyHashFromPrivateKey(privateKey)
-	if err != nil {
-		return err
-	}
+	publicKeyHash := privateKey.GetPublic().HashString()
 
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
 

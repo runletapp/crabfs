@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 
@@ -143,7 +144,7 @@ func (fs *crabFS) Close() error {
 	return fs.datastore.Close()
 }
 
-func (fs *crabFS) Get(ctx context.Context, publicKey interfaces.PubKey, bucket string, filename string) (interfaces.Fetcher, error) {
+func (fs *crabFS) Get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (interfaces.Fetcher, error) {
 	locker := fs.gc.Locker()
 	locker.Lock()
 
@@ -169,7 +170,7 @@ func (fs *crabFS) Get(ctx context.Context, publicKey interfaces.PubKey, bucket s
 	return fetcher, nil
 }
 
-func (fs *crabFS) Put(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error {
+func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error {
 	locker := fs.gc.Locker()
 	locker.Lock()
 	defer locker.Unlock()
@@ -206,7 +207,7 @@ func (fs *crabFS) Put(ctx context.Context, privateKey interfaces.PrivKey, bucket
 	return fs.host.Publish(ctx, privateKey, bucket, filename, blockMap, mtime, totalSize)
 }
 
-func (fs *crabFS) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket string, filename string) error {
+func (fs *crabFS) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {
 	if err := fs.gc.Schedule(); err != nil {
 		return err
 	}
@@ -233,7 +234,7 @@ func (fs *crabFS) GarbageCollector() interfaces.GarbageCollector {
 	return fs.gc
 }
 
-func (fs *crabFS) WithBucket(privateKey interfaces.PrivKey, bucket string) (interfaces.Bucket, error) {
+func (fs *crabFS) WithBucket(privateKey crabfsCrypto.PrivKey, bucket string) (interfaces.Bucket, error) {
 	if err := fs.PublishPublicKey(privateKey.GetPublic()); err != nil {
 		return nil, err
 	}
@@ -241,7 +242,7 @@ func (fs *crabFS) WithBucket(privateKey interfaces.PrivKey, bucket string) (inte
 	return BucketCoreNew(fs, privateKey, bucket), nil
 }
 
-func (fs *crabFS) PublishPublicKey(publicKey interfaces.PubKey) error {
+func (fs *crabFS) PublishPublicKey(publicKey crabfsCrypto.PubKey) error {
 	locker := fs.gc.Locker()
 	locker.Lock()
 	defer locker.Unlock()

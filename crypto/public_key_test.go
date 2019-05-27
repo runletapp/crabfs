@@ -3,7 +3,6 @@ package crypto
 import (
 	"bytes"
 	"crypto/rand"
-	"io/ioutil"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,38 +23,35 @@ func setDownPubKeyTest(ctrl *gomock.Controller) {
 	ctrl.Finish()
 }
 
-func TestPubKeyMarshall(t *testing.T) {
+func TestPubKeyMarshal(t *testing.T) {
 	key, ctrl := setUpPubKeyTest(t)
 	defer setDownPubKeyTest(ctrl)
 	assert := assert.New(t)
 
-	r, err := key.GetPublic().Marshall()
-	assert.Nil(err)
-
-	data, err := ioutil.ReadAll(r)
+	data, err := key.GetPublic().Marshal()
 	assert.Nil(err)
 	assert.True(len(data) > 0)
 }
 
-func TestPubKeyUnMarshall(t *testing.T) {
+func TestPubKeyUnMarshal(t *testing.T) {
 	key, ctrl := setUpPubKeyTest(t)
 	defer setDownPubKeyTest(ctrl)
 	assert := assert.New(t)
 
-	r, err := key.GetPublic().Marshall()
+	r, err := key.GetPublic().Marshal()
 	assert.Nil(err)
 
-	key2, err := UnmarshallPublicKey(r)
+	key2, err := UnmarshalPublicKey(r)
 	assert.Nil(err)
 
 	assert.True(bytes.Compare(key.GetPublic().Hash(), key2.Hash()) == 0)
 }
 
-func TestPubKeyUnMarshallInvalid(t *testing.T) {
+func TestPubKeyUnMarshalInvalid(t *testing.T) {
 	_, ctrl := setUpPubKeyTest(t)
 	defer setDownPubKeyTest(ctrl)
 	assert := assert.New(t)
 
-	_, err := UnmarshallPublicKey(bytes.NewReader([]byte("abc")))
+	_, err := UnmarshalPublicKey([]byte("abc"))
 	assert.NotNil(err)
 }

@@ -5,12 +5,9 @@ import (
 	"io"
 	"time"
 
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/runletapp/crabfs/options"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	pb "github.com/runletapp/crabfs/protos"
 
-	ipfsDatastore "github.com/ipfs/go-datastore"
-	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
@@ -20,16 +17,16 @@ type Host interface {
 	Announce() error
 
 	// GetSwarmPublicKey get the swarm public key from the keystore
-	GetSwarmPublicKey(ctx context.Context, hash string) (PubKey, error)
+	GetSwarmPublicKey(ctx context.Context, hash string) (crabfsCrypto.PubKey, error)
 
 	// Publish publishes a block map
-	Publish(ctx context.Context, privateKey PrivKey, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
+	Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
 	// Remove removes content from the network
-	Remove(ctx context.Context, privateKey PrivKey, bucket string, filename string) error
+	Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error
 
 	// GetContent get the block map specified by 'filename
-	GetContent(ctx context.Context, publicKey PubKey, bucket string, filename string) (BlockMap, error)
+	GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (BlockMap, error)
 
 	// FindProviders find the closest providers of cid
 	FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo
@@ -47,8 +44,5 @@ type Host interface {
 	Reprovide(ctx context.Context) error
 
 	// PutPublicKey broadcast this public key to the network
-	PutPublicKey(publicKey PubKey) error
+	PutPublicKey(publicKey crabfsCrypto.PubKey) error
 }
-
-// HostFactory type
-type HostFactory func(settings *options.Settings, privateKey *libp2pCrypto.RsaPrivateKey, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (Host, error)

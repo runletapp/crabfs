@@ -1,12 +1,13 @@
 package crabfs
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
-	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
-	multihash "github.com/multiformats/go-multihash"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 )
 
 // DHTNamespacePKValidatorNew creates a new validator that validates for all versions
@@ -27,16 +28,19 @@ func (validator DHTNamespacePKValidatorV1) Validate(key string, value []byte) er
 		return fmt.Errorf("Invalid key. Expexted format: /crabfs_pk/<hash> Got: %v", key)
 	}
 
-	if _, err := libp2pCrypto.UnmarshalPublicKey(value); err != nil {
+	if _, err := crabfsCrypto.UnmarshalPublicKey(value); err != nil {
 		return err
 	}
 
-	pskHash, err := multihash.Sum(value, multihash.SHA3_256, -1)
+	hash := sha256.New()
+	_, err := hash.Write(value)
 	if err != nil {
 		return err
 	}
 
-	expectedKey := fmt.Sprintf("/crabfs_pk/%s", pskHash.String())
+	pskHash := hash.Sum(nil)
+
+	expectedKey := fmt.Sprintf("/crabfs_pk/%s", hex.EncodeToString(pskHash))
 	if !strings.HasPrefix(key, expectedKey) {
 		return fmt.Errorf("Invalid key. Expexted: %s Got: %v", expectedKey, key)
 	}

@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"time"
 
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 
@@ -127,7 +128,7 @@ func main() {
 
 	log.Printf("Starting node...")
 
-	var psk interfaces.PrivKey
+	var psk crabfsCrypto.PrivKey
 	if *privateKeyFile != "" {
 		pskFile, err := os.Open(*privateKeyFile)
 		if err != nil {

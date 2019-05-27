@@ -11,12 +11,12 @@ import (
 	cid "github.com/ipfs/go-cid"
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
 
-	"github.com/runletapp/crabfs/interfaces"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	pb "github.com/runletapp/crabfs/protos"
 )
 
 // SwarmPublicKeyResolver resolver type to be used with DHTNamespacePKValidator
-type SwarmPublicKeyResolver func(ctx context.Context, hash string) (interfaces.PubKey, error)
+type SwarmPublicKeyResolver func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error)
 
 // DHTNamespaceValidatorNew creates a new validator that validates for all versions
 // validates keys like: /crabfs/v1/<hash of filename>

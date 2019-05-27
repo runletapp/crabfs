@@ -1,14 +1,11 @@
 package crabfs
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
-	multihash "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,10 +42,11 @@ func TestPkValidatorValidateInvalidPublicKeyHash(t *testing.T) {
 	validator, ctrl := setUpPkValidatorTest(t)
 	defer setDownPkValidatorTest(ctrl)
 
-	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+	privKey, err := GenerateKeyPair()
 	assert.Nil(err)
+	publicKey := privKey.GetPublic()
 
-	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
+	data, err := publicKey.Marshal()
 	assert.Nil(err)
 
 	assert.NotNil(validator.Validate("/crabfs_pk/12345", data))
@@ -59,16 +57,14 @@ func TestPkValidatorValidateValidPublicKey(t *testing.T) {
 	validator, ctrl := setUpPkValidatorTest(t)
 	defer setDownPkValidatorTest(ctrl)
 
-	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	publicKey := privKey.GetPublic()
+
+	data, err := publicKey.Marshal()
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
-	assert.Nil(err)
-
-	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
-	assert.Nil(err)
-
-	expectedKey := fmt.Sprintf("/crabfs_pk/%s", pskHash.String())
+	expectedKey := fmt.Sprintf("/crabfs_pk/%s", publicKey.HashString())
 
 	assert.Nil(validator.Validate(expectedKey, data))
 }
@@ -78,16 +74,14 @@ func TestPkValidatorSelect(t *testing.T) {
 	validator, ctrl := setUpPkValidatorTest(t)
 	defer setDownPkValidatorTest(ctrl)
 
-	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	publicKey := privKey.GetPublic()
+
+	data, err := publicKey.Marshal()
 	assert.Nil(err)
 
-	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
-	assert.Nil(err)
-
-	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
-	assert.Nil(err)
-
-	expectedKey := fmt.Sprintf("/crabfs_pk/%s", pskHash.String())
+	expectedKey := fmt.Sprintf("/crabfs_pk/%s", publicKey.HashString())
 
 	i, err := validator.Select(expectedKey, [][]byte{
 		data,
@@ -103,16 +97,11 @@ func TestPkValidatorSelectNoValues(t *testing.T) {
 	validator, ctrl := setUpPkValidatorTest(t)
 	defer setDownPkValidatorTest(ctrl)
 
-	_, publicKey, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
+	privKey, err := GenerateKeyPair()
 	assert.Nil(err)
+	publicKey := privKey.GetPublic()
 
-	data, err := libp2pCrypto.MarshalPublicKey(publicKey)
-	assert.Nil(err)
-
-	pskHash, err := multihash.Sum(data, multihash.SHA3_256, -1)
-	assert.Nil(err)
-
-	expectedKey := fmt.Sprintf("/crabfs_pk/%s", pskHash.String())
+	expectedKey := fmt.Sprintf("/crabfs_pk/%s", publicKey.HashString())
 
 	_, err = validator.Select(expectedKey, [][]byte{})
 

@@ -3,7 +3,6 @@ package crypto
 import (
 	"bytes"
 	"crypto/rand"
-	"io/ioutil"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,39 +23,36 @@ func setDownPrivKeyTest(ctrl *gomock.Controller) {
 	ctrl.Finish()
 }
 
-func TestPrivKeyMarshall(t *testing.T) {
+func TestPrivKeyMarshal(t *testing.T) {
 	key, ctrl := setUpPrivKeyTest(t)
 	defer setDownPrivKeyTest(ctrl)
 	assert := assert.New(t)
 
-	r, err := key.Marshall()
-	assert.Nil(err)
-
-	data, err := ioutil.ReadAll(r)
+	data, err := key.Marshal()
 	assert.Nil(err)
 	assert.True(len(data) > 0)
 }
 
-func TestPrivKeyUnMarshall(t *testing.T) {
+func TestPrivKeyUnMarshal(t *testing.T) {
 	key, ctrl := setUpPrivKeyTest(t)
 	defer setDownPrivKeyTest(ctrl)
 	assert := assert.New(t)
 
-	r, err := key.Marshall()
+	b, err := key.Marshal()
 	assert.Nil(err)
 
-	key2, err := UnmarshallPrivateKey(r)
+	key2, err := UnmarshalPrivateKey(b)
 	assert.Nil(err)
 
 	assert.True(bytes.Compare(key.Hash(), key2.Hash()) == 0)
 }
 
-func TestPrivKeyUnMarshallInvalid(t *testing.T) {
+func TestPrivKeyUnMarshalInvalid(t *testing.T) {
 	_, ctrl := setUpPrivKeyTest(t)
 	defer setDownPrivKeyTest(ctrl)
 	assert := assert.New(t)
 
-	_, err := UnmarshallPrivateKey(bytes.NewReader([]byte("abc")))
+	_, err := UnmarshalPrivateKey([]byte("abc"))
 	assert.NotNil(err)
 }
 
@@ -90,7 +86,7 @@ func TestPrivKeyEncryptDecryptWrongLabel(t *testing.T) {
 	assert.NotNil(err)
 }
 
-func TestPrivKeySignValidate(t *testing.T) {
+func TestPrivKeySignVerify(t *testing.T) {
 	key, ctrl := setUpPrivKeyTest(t)
 	defer setDownPrivKeyTest(ctrl)
 	assert := assert.New(t)
@@ -98,12 +94,12 @@ func TestPrivKeySignValidate(t *testing.T) {
 	sign, err := key.Sign([]byte("abc"))
 	assert.Nil(err)
 
-	check, err := key.GetPublic().Validate([]byte("abc"), sign)
+	check, err := key.GetPublic().Verify([]byte("abc"), sign)
 	assert.Nil(err)
 	assert.True(check)
 }
 
-func TestPrivKeySignValidateInvalid(t *testing.T) {
+func TestPrivKeySignVerifyInvalid(t *testing.T) {
 	key, ctrl := setUpPrivKeyTest(t)
 	defer setDownPrivKeyTest(ctrl)
 	assert := assert.New(t)
@@ -111,7 +107,7 @@ func TestPrivKeySignValidateInvalid(t *testing.T) {
 	sign, err := key.Sign([]byte("abc"))
 	assert.Nil(err)
 
-	check, err := key.GetPublic().Validate([]byte("abc2"), sign)
+	check, err := key.GetPublic().Verify([]byte("abc2"), sign)
 	assert.NotNil(err)
 	assert.False(check)
 }

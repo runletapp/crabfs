@@ -12,6 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	go_ipfs_blockstore "github.com/ipfs/go-ipfs-blockstore"
+	crypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 )
 
@@ -39,7 +40,7 @@ func (m *MockCore) EXPECT() *MockCoreMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCore) Get(ctx context.Context, publicKey interfaces.PubKey, bucket, filename string) (interfaces.Fetcher, error) {
+func (m *MockCore) Get(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (interfaces.Fetcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, publicKey, bucket, filename)
 	ret0, _ := ret[0].(interfaces.Fetcher)
@@ -54,7 +55,7 @@ func (mr *MockCoreMockRecorder) Get(ctx, publicKey, bucket, filename interface{}
 }
 
 // Put mocks base method
-func (m *MockCore) Put(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string, file io.Reader, mtime time.Time) error {
+func (m *MockCore) Put(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, file io.Reader, mtime time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", ctx, privateKey, bucket, filename, file, mtime)
 	ret0, _ := ret[0].(error)
@@ -68,7 +69,7 @@ func (mr *MockCoreMockRecorder) Put(ctx, privateKey, bucket, filename, file, mti
 }
 
 // Remove mocks base method
-func (m *MockCore) Remove(ctx context.Context, privateKey interfaces.PrivKey, bucket, filename string) error {
+func (m *MockCore) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove", ctx, privateKey, bucket, filename)
 	ret0, _ := ret[0].(error)
@@ -166,7 +167,7 @@ func (mr *MockCoreMockRecorder) Close() *gomock.Call {
 }
 
 // WithBucket mocks base method
-func (m *MockCore) WithBucket(privateKey interfaces.PrivKey, bucket string) (interfaces.Bucket, error) {
+func (m *MockCore) WithBucket(privateKey crypto.PrivKey, bucket string) (interfaces.Bucket, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithBucket", privateKey, bucket)
 	ret0, _ := ret[0].(interfaces.Bucket)
@@ -181,7 +182,7 @@ func (mr *MockCoreMockRecorder) WithBucket(privateKey, bucket interface{}) *gomo
 }
 
 // PublishPublicKey mocks base method
-func (m *MockCore) PublishPublicKey(publicKey interfaces.PubKey) error {
+func (m *MockCore) PublishPublicKey(publicKey crypto.PubKey) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PublishPublicKey", publicKey)
 	ret0, _ := ret[0].(error)

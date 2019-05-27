@@ -14,6 +14,7 @@ import (
 	libp2pRecord "github.com/libp2p/go-libp2p-record"
 	"github.com/stretchr/testify/assert"
 
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	pb "github.com/runletapp/crabfs/protos"
 )
 
@@ -77,10 +78,11 @@ func TestDHTValidatorInvalidRecordSignatureNil(t *testing.T) {
 func TestDHTValidatorInvalidRecordSignatureVerify(t *testing.T) {
 	assert := assert.New(t)
 
-	_, pk, pkHash := GenerateKeyPairWithHash(t)
+	pk, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return pk.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -93,17 +95,18 @@ func TestDHTValidatorInvalidRecordSignatureVerify(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", pk.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordSignatureVerify2(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -124,17 +127,18 @@ func TestDHTValidatorInvalidRecordSignatureVerify2(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValue(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -152,17 +156,18 @@ func TestDHTValidatorInvalidRecordValue(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValueBlockMapNil(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -174,7 +179,6 @@ func TestDHTValidatorInvalidRecordValueBlockMapNil(t *testing.T) {
 	var recordValue pb.DHTNameRecordValue
 	recordValue.Blocks = nil
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -185,17 +189,18 @@ func TestDHTValidatorInvalidRecordValueBlockMapNil(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValueBlockMapZero(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -207,7 +212,6 @@ func TestDHTValidatorInvalidRecordValueBlockMapZero(t *testing.T) {
 	var recordValue pb.DHTNameRecordValue
 	recordValue.Blocks = interfaces.BlockMap{}
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -218,17 +222,18 @@ func TestDHTValidatorInvalidRecordValueBlockMapZero(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValueBlockMapInvalidCid(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -243,7 +248,6 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidCid(t *testing.T) {
 		Cid: nil,
 	}
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -254,17 +258,18 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidCid(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValueBlockMapInvalidTotalSize(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -289,7 +294,6 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidTotalSize(t *testing.T) {
 		Size: int64(5),
 	}
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -300,17 +304,18 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidTotalSize(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorInvalidRecordValueBlockMapInvalidMtime(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -332,7 +337,6 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidMtime(t *testing.T) {
 
 	recordValue.Mtime = ""
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -343,17 +347,18 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidMtime(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.NotNil(validator.Validate(key, data))
 }
 
 func TestDHTValidatorValid(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, pk, pkHash := GenerateKeyPairWithHash(t)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	pkResolver := func(ctx context.Context, hash string) (interfaces.PubKey, error) {
-		return pk, nil
+	pkResolver := func(ctx context.Context, hash string) (crabfsCrypto.PubKey, error) {
+		return privKey.GetPublic(), nil
 	}
 
 	validator, ctrl := setUpDHTValidatorTest(t, pkResolver)
@@ -375,7 +380,6 @@ func TestDHTValidatorValid(t *testing.T) {
 
 	recordValue.Mtime = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var err error
 	record.Data, err = proto.Marshal(&recordValue)
 	assert.Nil(err)
 
@@ -386,7 +390,7 @@ func TestDHTValidatorValid(t *testing.T) {
 	data, err := proto.Marshal(&record)
 	assert.Nil(err)
 
-	key := fmt.Sprintf("/crabfs/v1/%s/hash", pkHash.String())
+	key := fmt.Sprintf("/crabfs/v1/%s/hash", privKey.GetPublic().HashString())
 	assert.Nil(validator.Validate(key, data))
 }
 

@@ -5,20 +5,21 @@ import (
 	"io"
 	"time"
 
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 )
 
 var _ interfaces.Bucket = &bucketCoreImpl{}
 
 type bucketCoreImpl struct {
-	privateKey interfaces.PrivKey
+	privateKey crabfsCrypto.PrivKey
 	bucket     string
 
 	fs interfaces.Core
 }
 
 // BucketCoreNew creates a new bucket core io
-func BucketCoreNew(fs interfaces.Core, privateKey interfaces.PrivKey, bucket string) interfaces.Bucket {
+func BucketCoreNew(fs interfaces.Core, privateKey crabfsCrypto.PrivKey, bucket string) interfaces.Bucket {
 	return &bucketCoreImpl{
 		privateKey: privateKey,
 		bucket:     bucket,
