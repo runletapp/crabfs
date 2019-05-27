@@ -7,6 +7,10 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+
+	"github.com/gogo/protobuf/proto"
+
+	"github.com/runletapp/crabfs/crypto/protos"
 )
 
 var _ PubKey = &publicKeyImpl{}
@@ -19,7 +23,14 @@ type publicKeyImpl struct {
 
 // UnmarshalPublicKey parse a public key from bytes generated with PubKey.Marshal
 func UnmarshalPublicKey(b []byte) (PubKey, error) {
-	key, err := x509.ParsePKCS1PublicKey(b)
+	var pbKey protos.Key
+	if err := proto.Unmarshal(b, &pbKey); err != nil {
+		return nil, err
+	}
+
+	// We only support x509 for now
+
+	key, err := x509.ParsePKCS1PublicKey(pbKey.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +60,17 @@ func publicKeyNewFromRSA(pub *rsa.PublicKey) (PubKey, error) {
 
 func (puk *publicKeyImpl) Marshal() ([]byte, error) {
 	data := x509.MarshalPKCS1PublicKey(puk.internalPk)
+
+	pb := protos.Key{
+		Format: protos.Key_x509,
+		Data:   data,
+	}
+
+	data, err := proto.Marshal(&pb)
+	if err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 

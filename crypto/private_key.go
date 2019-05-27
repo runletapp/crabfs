@@ -8,6 +8,9 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"io"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/runletapp/crabfs/crypto/protos"
 )
 
 var _ PrivKey = &privKeyImpl{}
@@ -21,7 +24,14 @@ type privKeyImpl struct {
 
 // UnmarshalPrivateKey parse a private key from bytes generated with PrivKey.Marshal
 func UnmarshalPrivateKey(b []byte) (PrivKey, error) {
-	key, err := x509.ParsePKCS1PrivateKey(b)
+	var pbKey protos.Key
+	if err := proto.Unmarshal(b, &pbKey); err != nil {
+		return nil, err
+	}
+
+	// We only support x509 for now
+
+	key, err := x509.ParsePKCS1PrivateKey(pbKey.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +80,16 @@ func (pvk *privKeyImpl) GetPublic() PubKey {
 
 func (pvk *privKeyImpl) Marshal() ([]byte, error) {
 	data := x509.MarshalPKCS1PrivateKey(pvk.internalPk)
+
+	pb := protos.Key{
+		Format: protos.Key_x509,
+		Data:   data,
+	}
+
+	data, err := proto.Marshal(&pb)
+	if err != nil {
+		return nil, err
+	}
 
 	return data, nil
 }
