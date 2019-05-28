@@ -23,6 +23,7 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string) 
 		options.Root(mountLocation),
 		options.Context(ctx),
 		options.BootstrapPeers([]string{bootstrapAddr}),
+		options.GCInterval(5*time.Second),
 	)
 	if err != nil {
 		panic(err)

@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"io"
+	"path"
 	"time"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
@@ -13,7 +14,7 @@ import (
 
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
-	ipfsDsBadger "github.com/ipfs/go-ds-badger"
+	ipfsDsLeveldb "github.com/ipfs/go-ds-leveldb"
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
@@ -70,7 +71,7 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		rawDatastore = ipfsDatastore.NewMapDatastore()
 	} else {
 		var err error
-		rawDatastore, err = ipfsDsBadger.NewDatastore(settings.Root, nil)
+		rawDatastore, err = ipfsDsLeveldb.NewDatastore(path.Join(settings.Root, "db"), nil)
 		if err != nil {
 			return nil, err
 		}
