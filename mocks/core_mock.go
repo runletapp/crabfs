@@ -40,18 +40,18 @@ func (m *MockCore) EXPECT() *MockCoreMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockCore) Get(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (interfaces.Fetcher, error) {
+func (m *MockCore) Get(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) (interfaces.Fetcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", ctx, publicKey, bucket, filename)
+	ret := m.ctrl.Call(m, "Get", ctx, privateKey, bucket, filename)
 	ret0, _ := ret[0].(interfaces.Fetcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockCoreMockRecorder) Get(ctx, publicKey, bucket, filename interface{}) *gomock.Call {
+func (mr *MockCoreMockRecorder) Get(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, publicKey, bucket, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCore)(nil).Get), ctx, privateKey, bucket, filename)
 }
 
 // Put mocks base method

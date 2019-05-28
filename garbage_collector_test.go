@@ -132,7 +132,7 @@ func TestGarbageCollectorCollectWithUsedBlocks(t *testing.T) {
 	}
 	assert.Nil(bs.PutMany(blocks))
 
-	recordValue := pb.DHTNameRecordValue{
+	recordValue := pb.CrabObject{
 		Blocks: map[int64]*pb.BlockMetadata{
 			0: &pb.BlockMetadata{
 				Cid:   blocks[0].Cid().Bytes(),

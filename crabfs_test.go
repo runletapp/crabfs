@@ -8,15 +8,17 @@ import (
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/mocks"
 	"github.com/runletapp/crabfs/options"
+	pb "github.com/runletapp/crabfs/protos"
 )
 
 func setUpCrabFSTest(t *testing.T) (*crabFS, *gomock.Controller) {
 	ctrl := setUpBasicTest(t)
 
-	mockFetcher := func(ctx context.Context, fs interfaces.Core, blockMap interfaces.BlockMap) (interfaces.Fetcher, error) {
+	mockFetcher := func(ctx context.Context, fs interfaces.Core, object *pb.CrabObject, privateKey crabfsCrypto.PrivKey) (interfaces.Fetcher, error) {
 		return mocks.NewMockFetcher(ctrl), nil
 	}
 

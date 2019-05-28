@@ -70,17 +70,17 @@ func (mr *MockHostMockRecorder) GetSwarmPublicKey(ctx, hash interface{}) *gomock
 }
 
 // Publish mocks base method
-func (m *MockHost) Publish(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (m *MockHost) Publish(ctx context.Context, privateKey crypto.PrivKey, cipherKey []byte, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, privateKey, bucket, filename, blockMap, mtime, size)
+	ret := m.ctrl.Call(m, "Publish", ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish
-func (mr *MockHostMockRecorder) Publish(ctx, privateKey, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Publish(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, privateKey, bucket, filename, blockMap, mtime, size)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
 }
 
 // Remove mocks base method
@@ -98,10 +98,10 @@ func (mr *MockHostMockRecorder) Remove(ctx, privateKey, bucket, filename interfa
 }
 
 // GetContent mocks base method
-func (m *MockHost) GetContent(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (interfaces.BlockMap, error) {
+func (m *MockHost) GetContent(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (*protos.CrabObject, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContent", ctx, publicKey, bucket, filename)
-	ret0, _ := ret[0].(interfaces.BlockMap)
+	ret0, _ := ret[0].(*protos.CrabObject)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -20,13 +20,13 @@ type Host interface {
 	GetSwarmPublicKey(ctx context.Context, hash string) (crabfsCrypto.PubKey, error)
 
 	// Publish publishes a block map
-	Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
+	Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
 	// Remove removes content from the network
 	Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error
 
 	// GetContent get the block map specified by 'filename
-	GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (BlockMap, error)
+	GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error)
 
 	// FindProviders find the closest providers of cid
 	FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo

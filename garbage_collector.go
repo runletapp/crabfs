@@ -105,7 +105,7 @@ func (gc *garbageCollectorImpl) Collect() error {
 	usedBlocks := map[cid.Cid]interface{}{}
 
 	var record pb.DHTNameRecord
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	for result := range results.Next() {
 		if err := proto.Unmarshal(result.Value, &record); err != nil {
 			continue

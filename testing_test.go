@@ -1,6 +1,7 @@
 package crabfs
 
 import (
+	"crypto/aes"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -21,6 +22,18 @@ func setDownBasicTest(ctrl *gomock.Controller) {
 	ctrl.Finish()
 }
 
-func CreateBlockFromString(data string) blocks.Block {
-	return blocks.NewBlock([]byte(data))
+func CreateBlockFromString(data string, key []byte) (blocks.Block, int64) {
+	cipher, _ := aes.NewCipher(key)
+
+	dataEnc := make([]byte, len(data))
+	copy(dataEnc, []byte(data))
+
+	paddingStart := len(dataEnc)
+	for i := 0; i < cipher.BlockSize()-paddingStart; i++ {
+		dataEnc = append(dataEnc, 0)
+	}
+
+	cipher.Encrypt(dataEnc, dataEnc)
+
+	return blocks.NewBlock(dataEnc), int64(paddingStart)
 }

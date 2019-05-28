@@ -29,7 +29,7 @@ func BucketCoreNew(fs interfaces.Core, privateKey crabfsCrypto.PrivKey, bucket s
 }
 
 func (b *bucketCoreImpl) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
-	return b.fs.Get(ctx, b.privateKey.GetPublic(), b.bucket, filename)
+	return b.fs.Get(ctx, b.privateKey, b.bucket, filename)
 }
 
 func (b *bucketCoreImpl) Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error {

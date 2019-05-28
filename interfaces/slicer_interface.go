@@ -9,5 +9,5 @@ import (
 // Slicer slice a reader into a series of blocks
 type Slicer interface {
 	// Next return the next block or nil if it has reached eof
-	Next() (*pb.BlockMetadata, blocks.Block, error)
+	Next() (*pb.BlockMetadata, blocks.Block, int64, error)
 }

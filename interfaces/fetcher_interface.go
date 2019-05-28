@@ -3,6 +3,9 @@ package interfaces
 import (
 	"context"
 	"io"
+
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
+	pb "github.com/runletapp/crabfs/protos"
 )
 
 // Fetcher block fetcher interface
@@ -20,4 +23,4 @@ type Fetcher interface {
 }
 
 // FetcherFactory fetcher factory type
-type FetcherFactory func(ctx context.Context, fs Core, blockMap BlockMap) (Fetcher, error)
+type FetcherFactory func(ctx context.Context, fs Core, object *pb.CrabObject, privateKey crabfsCrypto.PrivKey) (Fetcher, error)

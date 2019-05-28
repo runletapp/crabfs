@@ -176,7 +176,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapNil(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = nil
 
 	record.Data, err = proto.Marshal(&recordValue)
@@ -209,7 +209,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapZero(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = interfaces.BlockMap{}
 
 	record.Data, err = proto.Marshal(&recordValue)
@@ -242,7 +242,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidCid(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = interfaces.BlockMap{}
 	recordValue.Blocks[0] = &pb.BlockMetadata{
 		Cid: nil,
@@ -278,7 +278,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidTotalSize(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = interfaces.BlockMap{}
 
 	block := blocks.NewBlock([]byte("block1"))
@@ -324,7 +324,7 @@ func TestDHTValidatorInvalidRecordValueBlockMapInvalidMtime(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = interfaces.BlockMap{}
 
 	block := blocks.NewBlock([]byte("block1"))
@@ -367,7 +367,7 @@ func TestDHTValidatorValid(t *testing.T) {
 	var record pb.DHTNameRecord
 	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	recordValue.Blocks = interfaces.BlockMap{}
 
 	block := blocks.NewBlock([]byte("block1"))

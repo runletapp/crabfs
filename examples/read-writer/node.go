@@ -46,7 +46,7 @@ func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string) 
 	return fs
 }
 
-func reader(ctx context.Context, fs interfaces.Bucket, filename string) {
+func reader(ctx context.Context, fs interfaces.Bucket, filename string, output io.Writer) {
 	log.Printf("Looking for: %s", filename)
 
 	file, err := fs.Get(ctx, filename)
@@ -63,10 +63,11 @@ func reader(ctx context.Context, fs interfaces.Bucket, filename string) {
 		log.Printf("Seek Err: %v", err)
 	}
 
-	_, err = io.Copy(os.Stdout, file)
+	_, err = io.Copy(output, file)
 	if err != nil {
 		log.Printf("Copy Err: %v", err)
 	}
+	log.Printf("EOF")
 }
 
 func writer(ctx context.Context, fs interfaces.Bucket, filename string) {
@@ -103,6 +104,7 @@ func main() {
 	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	readFile := flag.String("q", "", "read file")
 	writeFile := flag.String("w", "", "write file")
+	readDumpFile := flag.String("t", "", "dump file")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -148,7 +150,18 @@ func main() {
 	}
 
 	if *readFile != "" {
-		reader(ctx, bucket, *readFile)
+		var output io.Writer
+		if *readDumpFile != "" {
+			file, err := os.Create(*readDumpFile)
+			if err != nil {
+				panic(err)
+			}
+			defer file.Close()
+			output = file
+		} else {
+			output = os.Stdout
+		}
+		reader(ctx, bucket, *readFile, output)
 	} else if *writeFile != "" {
 		writer(ctx, bucket, *writeFile)
 	}

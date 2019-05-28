@@ -3,6 +3,8 @@ package crabfs
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"io"
 	"os"
 	"sort"
@@ -11,6 +13,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	pb "github.com/runletapp/crabfs/protos"
 )
@@ -35,19 +38,31 @@ type BasicFetcher struct {
 	fs interfaces.Core
 
 	locker sync.Locker
+
+	privateKey crabfsCrypto.PrivKey
+
+	cipher cipher.Block
 }
 
 // BasicFetcherNew creates a new basic fetcher
-func BasicFetcherNew(ctx context.Context, fs interfaces.Core, blockMap interfaces.BlockMap) (interfaces.Fetcher, error) {
+func BasicFetcherNew(ctx context.Context, fs interfaces.Core, object *pb.CrabObject, privateKey crabfsCrypto.PrivKey) (interfaces.Fetcher, error) {
 	keys := []int64{}
 
-	totalSize := int64(0)
+	blockMap := object.Blocks
 
-	for key, blockMeta := range blockMap {
-		totalSize += blockMeta.Size
+	for key := range blockMap {
 		keys = append(keys, key)
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+	key, err := privateKey.Decrypt(object.Key, []byte("crabfs"))
+	if err != nil {
+		return nil, err
+	}
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -60,11 +75,15 @@ func BasicFetcherNew(ctx context.Context, fs interfaces.Core, blockMap interface
 
 		buffer: &bytes.Buffer{},
 
-		totalSize: totalSize,
+		totalSize: object.Size,
 
 		blockMap: blockMap,
 
 		fs: fs,
+
+		privateKey: privateKey,
+
+		cipher: cipher,
 	}
 
 	return fetcher, nil
@@ -87,13 +106,26 @@ func (fetcher *BasicFetcher) getNextIndex(offset int64) int64 {
 	return currentIndex
 }
 
+func (fetcher *BasicFetcher) getDataFromBlock(meta *pb.BlockMetadata, block blocks.Block) ([]byte, error) {
+	data := make([]byte, len(block.RawData()))
+	copy(data, block.RawData())
+	fetcher.cipher.Decrypt(data, data)
+
+	return data[:int(meta.PaddingStart)], nil
+}
+
 func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	if fetcher.offset >= fetcher.totalSize {
 		return 0, io.EOF
 	}
 
-	if fetcher.buffer.Len() >= cap(p) {
-		n, err := fetcher.buffer.Read(p)
+	limit := fetcher.totalSize - fetcher.offset
+	if int64(len(p)) < limit {
+		limit = int64(len(p))
+	}
+
+	if fetcher.buffer.Len() >= len(p[:limit]) {
+		n, err := fetcher.buffer.Read(p[:limit])
 		if err != nil {
 			return 0, err
 		}
@@ -118,9 +150,13 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	cid, _ := cid.Cast(blockMeta.Cid)
 	block, err := fetcher.fs.Blockstore().Get(cid)
 	if err == nil {
-		fetcher.buffer.Write(block.RawData()[localOffset:])
+		plainData, err := fetcher.getDataFromBlock(blockMeta, block)
+		if err != nil {
+			return 0, err
+		}
+		fetcher.buffer.Write(plainData[localOffset:])
 
-		n, err := fetcher.buffer.Read(p)
+		n, err := fetcher.buffer.Read(p[:limit])
 		if err != nil {
 			return 0, err
 		}
@@ -136,8 +172,13 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		return 0, err
 	}
 
-	fetcher.buffer.Write(block.RawData()[localOffset:])
-	n, err = fetcher.buffer.Read(p)
+	plainData, err := fetcher.getDataFromBlock(blockMeta, block)
+	if err != nil {
+		return 0, err
+	}
+
+	fetcher.buffer.Write(plainData[localOffset:])
+	n, err = fetcher.buffer.Read(p[:limit])
 	if err != nil {
 		return 0, err
 	}

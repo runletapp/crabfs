@@ -11,6 +11,7 @@ import (
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
+	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/mocks"
 	pb "github.com/runletapp/crabfs/protos"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ import (
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
-func setUpFetcherTest(t *testing.T, blockMap interfaces.BlockMap) (interfaces.Fetcher, interfaces.Core, *gomock.Controller) {
+func setUpFetcherTest(t *testing.T, object *pb.CrabObject) (interfaces.Fetcher, interfaces.Core, crabfsCrypto.PrivKey, *gomock.Controller) {
 	ctrl := setUpBasicTest(t)
 	assert := assert.New(t)
 
@@ -30,17 +31,25 @@ func setUpFetcherTest(t *testing.T, blockMap interfaces.BlockMap) (interfaces.Fe
 	blockstore := ipfsBlockstore.NewBlockstore(datastore)
 	fs.EXPECT().Blockstore().AnyTimes().Return(blockstore)
 
-	fetcher, err := BasicFetcherNew(context.Background(), fs, blockMap)
+	privateKey, err := GenerateKeyPair()
 	assert.Nil(err)
 
-	return fetcher, fs, ctrl
+	key, err := privateKey.GetPublic().Encrypt([]byte("0123456789abcdef"), []byte("crabfs"))
+	assert.Nil(err)
+
+	object.Key = key
+
+	fetcher, err := BasicFetcherNew(context.Background(), fs, object, privateKey)
+	assert.Nil(err)
+
+	return fetcher, fs, privateKey, ctrl
 }
 
 func setDownFetcherTest(ctrl *gomock.Controller) {
 	setDownBasicTest(ctrl)
 }
 
-func TestFetcherSizeCalc(t *testing.T) {
+func TestFetcherSize(t *testing.T) {
 	assert := assert.New(t)
 
 	blockMap := interfaces.BlockMap{}
@@ -55,10 +64,10 @@ func TestFetcherSizeCalc(t *testing.T) {
 		Cid:   []byte{},
 	}
 
-	fetcher, _, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, _, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 55})
 	defer setDownFetcherTest(ctrl)
 
-	assert.Equal(int64(10), fetcher.Size())
+	assert.Equal(int64(55), fetcher.Size())
 }
 
 func TestFetcherReadWholeBlock(t *testing.T) {
@@ -66,14 +75,15 @@ func TestFetcherReadWholeBlock(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -98,14 +108,15 @@ func TestFetcherReadOverCap(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("012345678901234567890123456789")
+	block, padding := CreateBlockFromString("012345678901234567890123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 30})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(30), fetcher.Size())
@@ -136,14 +147,15 @@ func TestFetcherReadMidBlock(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -179,19 +191,124 @@ func TestFetcherReadMidBlock(t *testing.T) {
 	assert.Equal("45", string(data))
 }
 
+func TestFetcherReadBetweenBlocks(t *testing.T) {
+	assert := assert.New(t)
+
+	blockMap := interfaces.BlockMap{}
+
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	blockMap[0] = &pb.BlockMetadata{
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	block, padding = CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	blockMap[10] = &pb.BlockMetadata{
+		Start:        10,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 20})
+	defer setDownFetcherTest(ctrl)
+
+	assert.Equal(int64(20), fetcher.Size())
+
+	host := mocks.NewMockHost(ctrl)
+	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+
+	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
+	peerCh <- libp2pPeerstore.PeerInfo{}
+
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+	host.EXPECT().CreateBlockStream(gomock.Any(), gomock.Any(), gomock.Any()).Return(bytes.NewReader(block.RawData()), nil)
+
+	data := make([]byte, 4)
+	n, err := fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(4, n)
+	assert.Equal("0123", string(data))
+
+	// Seek will clear the internal buffer
+	pos, err := fetcher.Seek(8, os.SEEK_SET)
+	assert.Nil(err)
+	assert.Equal(int64(8), pos)
+
+	n, err = io.ReadFull(fetcher, data)
+	assert.Nil(err)
+	assert.Equal(4, n)
+	assert.Equal("8901", string(data))
+}
+
+func TestFetcherReadFinalBlock(t *testing.T) {
+	assert := assert.New(t)
+
+	blockMap := interfaces.BlockMap{}
+
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	blockMap[0] = &pb.BlockMetadata{
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	block, padding = CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	blockMap[10] = &pb.BlockMetadata{
+		Start:        10,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 20})
+	defer setDownFetcherTest(ctrl)
+
+	assert.Equal(int64(20), fetcher.Size())
+
+	host := mocks.NewMockHost(ctrl)
+	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+
+	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
+	peerCh <- libp2pPeerstore.PeerInfo{}
+
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+	host.EXPECT().CreateBlockStream(gomock.Any(), gomock.Any(), gomock.Any()).Return(bytes.NewReader(block.RawData()), nil)
+
+	data := make([]byte, 4)
+	n, err := fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(4, n)
+	assert.Equal("0123", string(data))
+
+	// Seek will clear the internal buffer
+	pos, err := fetcher.Seek(19, os.SEEK_SET)
+	assert.Nil(err)
+	assert.Equal(int64(19), pos)
+
+	n, err = fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(1, n)
+	assert.Equal("9", string(data[:n]))
+}
+
 func TestFetcherSeekOverflow(t *testing.T) {
 	assert := assert.New(t)
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -207,14 +324,15 @@ func TestFetcherSeekOverflowCur(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -234,14 +352,15 @@ func TestFetcherSeekEnd(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -263,14 +382,15 @@ func TestFetcherSeekEndBackwards(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -292,14 +412,15 @@ func TestFetcherSeekCurEnd(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -321,14 +442,15 @@ func TestFetcherDownloadInvalidData(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -359,14 +481,15 @@ func TestFetcherDownloadShortRead(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -397,14 +520,15 @@ func TestFetcherDownloadErrorCreateStream(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())
@@ -435,14 +559,15 @@ func TestFetcherDownloadNotFound(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block := CreateBlockFromString("0123456789")
+	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
-		Start: 0,
-		Size:  int64(len(block.RawData())),
-		Cid:   block.Cid().Bytes(),
+		Start:        0,
+		Size:         int64(len(block.RawData())),
+		Cid:          block.Cid().Bytes(),
+		PaddingStart: padding,
 	}
 
-	fetcher, fs, ctrl := setUpFetcherTest(t, blockMap)
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 10})
 	defer setDownFetcherTest(ctrl)
 
 	assert.Equal(int64(10), fetcher.Size())

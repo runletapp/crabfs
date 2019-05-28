@@ -12,7 +12,7 @@ import (
 // Core interface
 type Core interface {
 	// Get opens a file stream
-	Get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (Fetcher, error)
+	Get(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (Fetcher, error)
 
 	// Put writes a file to the storage
 	Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error

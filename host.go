@@ -235,15 +235,16 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (crabf
 	return pk, nil
 }
 
-func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
-	recordValue := &pb.DHTNameRecordValue{
+	recordValue := &pb.CrabObject{
 		Blocks: blockMap,
 		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
 		Size:   size,
+		Key:    cipherKey,
 	}
 
 	data, err := proto.Marshal(recordValue)
@@ -301,7 +302,7 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (interfaces.BlockMap, error) {
+func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error) {
 	bucketFilename := path.Join(bucket, filename)
 	publicKeyHash := publicKey.HashString()
 
@@ -328,12 +329,12 @@ func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.Pub
 		return nil, err
 	}
 
-	var value pb.DHTNameRecordValue
+	var value pb.CrabObject
 	if err := proto.Unmarshal(record.Data, &value); err != nil {
 		return nil, err
 	}
 
-	return value.Blocks, nil
+	return &value, nil
 }
 
 func (host *hostImpl) FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo {
@@ -375,10 +376,11 @@ func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKe
 		Delete:    true,
 	}
 
-	recordValue := &pb.DHTNameRecordValue{
+	recordValue := &pb.CrabObject{
 		Blocks: map[int64]*pb.BlockMetadata{},
 		Mtime:  time.Now().UTC().Format(time.RFC3339Nano),
 		Size:   0,
+		Key:    []byte{},
 	}
 
 	data, err := proto.Marshal(recordValue)

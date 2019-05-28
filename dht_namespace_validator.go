@@ -70,7 +70,7 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return fmt.Errorf("Invalid key")
 	}
 
-	var recordValue pb.DHTNameRecordValue
+	var recordValue pb.CrabObject
 	if err := proto.Unmarshal(record.Data, &recordValue); err != nil {
 		return err
 	}
@@ -79,19 +79,11 @@ func (validator DHTNamespaceValidatorV1) Validate(key string, value []byte) erro
 		return fmt.Errorf("Invalid block map")
 	}
 
-	computedSize := int64(0)
-
 	for _, block := range recordValue.Blocks {
 		_, err = cid.Cast(block.Cid)
 		if err != nil {
 			return err
 		}
-
-		computedSize += block.Size
-	}
-
-	if computedSize != recordValue.Size {
-		return fmt.Errorf("Invalid block map")
 	}
 
 	_, err = time.Parse(time.RFC3339Nano, recordValue.Mtime)

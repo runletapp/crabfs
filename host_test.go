@@ -106,7 +106,9 @@ func TestHostPublishNoPeers(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
-	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	cipherKey := []byte("0123456789abcdef")
+
+	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostPublishPeers(t *testing.T) {
@@ -130,7 +132,9 @@ func TestHostPublishPeers(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
-	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	cipherKey := []byte("0123456789abcdef")
+
+	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 }
 
 func TestHostReprovideNoPeers(t *testing.T) {
@@ -181,7 +185,9 @@ func TestHostReprovideWithPeersAndContent(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
-	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	cipherKey := []byte("0123456789abcdef")
+
+	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	assert.Nil(host.Reprovide(context.Background()))
 }
@@ -207,7 +213,9 @@ func TestHostFindProvidersWithPeersAndContent(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
-	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	cipherKey := []byte("0123456789abcdef")
+
+	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	provider := <-ch
@@ -235,7 +243,9 @@ func TestHostFindProvidersWithNoPeersAndContent(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
 
-	assert.Nil(host.Publish(context.Background(), privKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
+	cipherKey := []byte("0123456789abcdef")
+
+	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
 	ch := host.FindProviders(context.Background(), blockMap[0])
 	select {
