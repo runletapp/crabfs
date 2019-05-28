@@ -196,19 +196,19 @@ func TestFetcherReadBetweenBlocks(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	block0, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
 		Start:        0,
-		Size:         int64(len(block.RawData())),
-		Cid:          block.Cid().Bytes(),
+		Size:         int64(len(block0.RawData())),
+		Cid:          block0.Cid().Bytes(),
 		PaddingStart: padding,
 	}
 
-	block, padding = CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	block10, padding := CreateBlockFromString("9876543210", []byte("0123456789abcdef"))
 	blockMap[10] = &pb.BlockMetadata{
 		Start:        10,
-		Size:         int64(len(block.RawData())),
-		Cid:          block.Cid().Bytes(),
+		Size:         int64(len(block10.RawData())),
+		Cid:          block10.Cid().Bytes(),
 		PaddingStart: padding,
 	}
 
@@ -220,11 +220,15 @@ func TestFetcherReadBetweenBlocks(t *testing.T) {
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
 
-	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
+	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
+	peerCh <- libp2pPeerstore.PeerInfo{}
 	peerCh <- libp2pPeerstore.PeerInfo{}
 
 	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
-	host.EXPECT().CreateBlockStream(gomock.Any(), gomock.Any(), gomock.Any()).Return(bytes.NewReader(block.RawData()), nil)
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[0], gomock.Any()).Return(bytes.NewReader(block0.RawData()), nil)
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[10], gomock.Any()).Return(bytes.NewReader(block10.RawData()), nil)
 
 	data := make([]byte, 4)
 	n, err := fetcher.Read(data)
@@ -240,7 +244,7 @@ func TestFetcherReadBetweenBlocks(t *testing.T) {
 	n, err = io.ReadFull(fetcher, data)
 	assert.Nil(err)
 	assert.Equal(4, n)
-	assert.Equal("8901", string(data))
+	assert.Equal("8998", string(data))
 }
 
 func TestFetcherReadFinalBlock(t *testing.T) {
@@ -248,19 +252,19 @@ func TestFetcherReadFinalBlock(t *testing.T) {
 
 	blockMap := interfaces.BlockMap{}
 
-	block, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	block0, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
 	blockMap[0] = &pb.BlockMetadata{
 		Start:        0,
-		Size:         int64(len(block.RawData())),
-		Cid:          block.Cid().Bytes(),
+		Size:         int64(len(block0.RawData())),
+		Cid:          block0.Cid().Bytes(),
 		PaddingStart: padding,
 	}
 
-	block, padding = CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	block10, padding := CreateBlockFromString("987654321A", []byte("0123456789abcdef"))
 	blockMap[10] = &pb.BlockMetadata{
 		Start:        10,
-		Size:         int64(len(block.RawData())),
-		Cid:          block.Cid().Bytes(),
+		Size:         int64(len(block10.RawData())),
+		Cid:          block10.Cid().Bytes(),
 		PaddingStart: padding,
 	}
 
@@ -272,11 +276,15 @@ func TestFetcherReadFinalBlock(t *testing.T) {
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
 
-	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
+	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
+	peerCh <- libp2pPeerstore.PeerInfo{}
 	peerCh <- libp2pPeerstore.PeerInfo{}
 
 	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
-	host.EXPECT().CreateBlockStream(gomock.Any(), gomock.Any(), gomock.Any()).Return(bytes.NewReader(block.RawData()), nil)
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[0], gomock.Any()).Return(bytes.NewReader(block0.RawData()), nil)
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[10], gomock.Any()).Return(bytes.NewReader(block10.RawData()), nil)
 
 	data := make([]byte, 4)
 	n, err := fetcher.Read(data)
@@ -292,7 +300,63 @@ func TestFetcherReadFinalBlock(t *testing.T) {
 	n, err = fetcher.Read(data)
 	assert.Nil(err)
 	assert.Equal(1, n)
-	assert.Equal("9", string(data[:n]))
+	assert.Equal("A", string(data[:n]))
+}
+
+func TestFetcherBigBlocks(t *testing.T) {
+	assert := assert.New(t)
+
+	blockMap := interfaces.BlockMap{}
+
+	block0, padding := CreateBlockFromString("0123456789", []byte("0123456789abcdef"))
+	blockMap[0] = &pb.BlockMetadata{
+		Start:        0,
+		Size:         int64(len(block0.RawData())),
+		Cid:          block0.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	block10, padding := CreateBlockFromString("98765", []byte("0123456789abcdef"))
+	blockMap[10] = &pb.BlockMetadata{
+		Start:        10,
+		Size:         int64(len(block10.RawData())),
+		Cid:          block10.Cid().Bytes(),
+		PaddingStart: padding,
+	}
+
+	fetcher, fs, _, ctrl := setUpFetcherTest(t, &pb.CrabObject{Blocks: blockMap, Size: 15})
+	defer setDownFetcherTest(ctrl)
+
+	assert.Equal(int64(15), fetcher.Size())
+
+	host := mocks.NewMockHost(ctrl)
+	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+
+	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
+	peerCh <- libp2pPeerstore.PeerInfo{}
+	peerCh <- libp2pPeerstore.PeerInfo{}
+
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
+
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[0], gomock.Any()).Return(bytes.NewReader(block0.RawData()), nil)
+	host.EXPECT().CreateBlockStream(gomock.Any(), blockMap[10], gomock.Any()).Return(bytes.NewReader(block10.RawData()), nil)
+
+	data := make([]byte, 8)
+	n, err := fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(8, n)
+	assert.Equal("01234567", string(data))
+
+	n, err = fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(2, n)
+	assert.Equal("89", string(data[:n]))
+
+	n, err = fetcher.Read(data)
+	assert.Nil(err)
+	assert.Equal(5, n)
+	assert.Equal("98765", string(data[:n]))
 }
 
 func TestFetcherSeekOverflow(t *testing.T) {

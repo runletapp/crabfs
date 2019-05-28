@@ -124,8 +124,11 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		limit = int64(len(p))
 	}
 
-	if fetcher.buffer.Len() >= len(p[:limit]) {
-		n, err := fetcher.buffer.Read(p[:limit])
+	// pLimit := p[:limit]
+	pLimit := p
+
+	if fetcher.buffer.Len() > 0 {
+		n, err := fetcher.buffer.Read(pLimit)
 		if err != nil {
 			return 0, err
 		}
@@ -156,7 +159,7 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		}
 		fetcher.buffer.Write(plainData[localOffset:])
 
-		n, err := fetcher.buffer.Read(p[:limit])
+		n, err := fetcher.buffer.Read(pLimit)
 		if err != nil {
 			return 0, err
 		}
@@ -178,7 +181,7 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	}
 
 	fetcher.buffer.Write(plainData[localOffset:])
-	n, err = fetcher.buffer.Read(p[:limit])
+	n, err = fetcher.buffer.Read(pLimit)
 	if err != nil {
 		return 0, err
 	}
