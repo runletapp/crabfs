@@ -58,7 +58,7 @@ func setUpHostTestWithRelay(t *testing.T) (interfaces.Host, ipfsDatastore.Datast
 	ds := ipfsDatastore.NewMapDatastore()
 	bs := ipfsBlockstore.NewBlockstore(ds)
 
-	relay, err := RelayNew(settings.Context, 0, []string{})
+	relay, err := RelayNew(settings.Context, 0, []string{}, nil)
 	assert.Nil(err)
 
 	settings.BootstrapPeers = relay.GetAddrs()
