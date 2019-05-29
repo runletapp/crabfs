@@ -9,7 +9,7 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
-	libp2pHost "github.com/libp2p/go-libp2p-host"
+	libp2pHost "github.com/libp2p/go-libp2p-core/host"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
@@ -35,7 +35,7 @@ func RelayNew(ctx context.Context, port uint, bootstrapPeers []string, id identi
 		return nil, err
 	}
 
-	relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ipfs/%s", relayHost.ID().Pretty()))
+	relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", relayHost.ID().Pretty()))
 	if err != nil {
 		return nil, err
 	}

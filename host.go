@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"path"
 	"time"
 
@@ -25,13 +26,13 @@ import (
 	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
+	libp2pHost "github.com/libp2p/go-libp2p-core/host"
+	libp2pNet "github.com/libp2p/go-libp2p-core/network"
+	libp2pRouting "github.com/libp2p/go-libp2p-core/routing"
 	discovery "github.com/libp2p/go-libp2p-discovery"
-	libp2pHost "github.com/libp2p/go-libp2p-host"
 	libp2pDht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2pDhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
-	libp2pNet "github.com/libp2p/go-libp2p-net"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
-	libp2pRouting "github.com/libp2p/go-libp2p-routing"
 	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
 )
 
@@ -217,7 +218,8 @@ func (host *hostImpl) GetID() string {
 func (host *hostImpl) GetAddrs() []string {
 	addrs := []string{}
 
-	hostAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ipfs/%s", host.p2pHost.ID().Pretty()))
+	hostAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", host.p2pHost.ID().Pretty()))
+	log.Printf("host addr: %v", hostAddr.String())
 	if err != nil {
 		return addrs
 	}
