@@ -2,11 +2,15 @@ package crabfs
 
 import (
 	"context"
+	"fmt"
 	"strings"
+
+	"github.com/runletapp/crabfs/identity"
 
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	libp2pHost "github.com/libp2p/go-libp2p-host"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 )
@@ -22,7 +26,7 @@ type Relay struct {
 }
 
 // RelayNew creates a new relay instance
-func RelayNew(ctx context.Context, port uint, bootstrapPeers []string) (*Relay, error) {
+func RelayNew(ctx context.Context, port uint, bootstrapPeers []string, id identity.Identity) (*Relay, error) {
 	relayHost, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(libp2pCircuit.OptHop),
@@ -31,10 +35,15 @@ func RelayNew(ctx context.Context, port uint, bootstrapPeers []string) (*Relay, 
 		return nil, err
 	}
 
+	relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ipfs/%s", relayHost.ID().Pretty()))
+	if err != nil {
+		return nil, err
+	}
+
 	addrs := bootstrapPeers
 	for _, addr := range relayHost.Addrs() {
-		if strings.HasPrefix(addr.String(), "tcp/127") || strings.HasPrefix(addr.String(), "tcp/::1") {
-			addrs = append(addrs, addr.String())
+		if strings.HasPrefix(addr.String(), "/ip4/127") || strings.HasPrefix(addr.String(), "/ip6/::1") {
+			addrs = append(addrs, addr.Encapsulate(relayAddr).String())
 		}
 	}
 
@@ -42,6 +51,7 @@ func RelayNew(ctx context.Context, port uint, bootstrapPeers []string) (*Relay, 
 		options.Port(port),
 		options.RelayOnly(true),
 		options.BootstrapPeers(addrs),
+		options.Identity(id),
 	)
 	if err != nil {
 		relayHost.Close()

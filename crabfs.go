@@ -9,6 +9,7 @@ import (
 	"time"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
+	"github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 
@@ -50,20 +51,13 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		return nil, ErrInvalidBlockSize
 	}
 
-	// var privateKey *libp2pCrypto.RsaPrivateKey
-	// var err error
-	// if settings.PrivateKey == nil {
-	// 	privKey, _, err := libp2pCrypto.GenerateRSAKeyPair(2048, rand.Reader)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	privateKey = privKey.(*libp2pCrypto.RsaPrivateKey)
-	// } else {
-	// 	privateKey, err = ReadPrivateKey(settings.PrivateKey)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	if settings.Identity == nil {
+		var err error
+		settings.Identity, err = identity.CreateIdentity()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var rawDatastore ipfsDatastore.Datastore
 	if settings.Root == "" {
@@ -272,4 +266,8 @@ func (fs *crabFS) PublishPublicKey(publicKey crabfsCrypto.PubKey) error {
 	defer locker.Unlock()
 
 	return fs.host.PutPublicKey(publicKey)
+}
+
+func (fs *crabFS) GetIdentity() identity.Identity {
+	return fs.settings.Identity
 }

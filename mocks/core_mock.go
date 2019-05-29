@@ -13,6 +13,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	go_ipfs_blockstore "github.com/ipfs/go-ipfs-blockstore"
 	crypto "github.com/runletapp/crabfs/crypto"
+	identity "github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 )
 
@@ -193,4 +194,18 @@ func (m *MockCore) PublishPublicKey(publicKey crypto.PubKey) error {
 func (mr *MockCoreMockRecorder) PublishPublicKey(publicKey interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishPublicKey", reflect.TypeOf((*MockCore)(nil).PublishPublicKey), publicKey)
+}
+
+// GetIdentity mocks base method
+func (m *MockCore) GetIdentity() identity.Identity {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIdentity")
+	ret0, _ := ret[0].(identity.Identity)
+	return ret0
+}
+
+// GetIdentity indicates an expected call of GetIdentity
+func (mr *MockCoreMockRecorder) GetIdentity() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdentity", reflect.TypeOf((*MockCore)(nil).GetIdentity))
 }

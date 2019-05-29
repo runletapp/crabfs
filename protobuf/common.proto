@@ -26,3 +26,7 @@ message CrabObject {
 message BlockStreamRequest {
     bytes cid = 1;
 }
+
+message Identity {
+    bytes privKey = 1;
+}

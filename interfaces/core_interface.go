@@ -7,6 +7,7 @@ import (
 
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
+	"github.com/runletapp/crabfs/identity"
 )
 
 // Core interface
@@ -43,4 +44,7 @@ type Core interface {
 
 	// PublishPublicKey publishes a public key to the network
 	PublishPublicKey(publicKey crabfsCrypto.PubKey) error
+
+	// GetIdentity returns the current identity of the node
+	GetIdentity() identity.Identity
 }

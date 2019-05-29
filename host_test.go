@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/runletapp/crabfs/identity"
+
 	"github.com/golang/mock/gomock"
 	blocks "github.com/ipfs/go-block-format"
 	ipfsDatastore "github.com/ipfs/go-datastore"
@@ -19,8 +21,12 @@ func setUpHostTestWithDsAndBs(t *testing.T) (interfaces.Host, ipfsDatastore.Data
 	ctrl := setUpBasicTest(t)
 	assert := assert.New(t)
 
+	id, err := identity.CreateIdentity()
+	assert.Nil(err)
+
 	settings := &options.Settings{
-		Context: context.Background(),
+		Context:  context.Background(),
+		Identity: id,
 	}
 
 	ds := ipfsDatastore.NewMapDatastore()
@@ -41,8 +47,12 @@ func setUpHostTestWithRelay(t *testing.T) (interfaces.Host, ipfsDatastore.Datast
 	ctrl := setUpBasicTest(t)
 	assert := assert.New(t)
 
+	id, err := identity.CreateIdentity()
+	assert.Nil(err)
+
 	settings := &options.Settings{
-		Context: context.Background(),
+		Context:  context.Background(),
+		Identity: id,
 	}
 
 	ds := ipfsDatastore.NewMapDatastore()

@@ -16,6 +16,7 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
+	"github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
@@ -68,6 +69,13 @@ func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore b
 		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
 		libp2p.EnableRelay(libp2pCircuit.OptDiscovery),
 	}
+
+	id, ok := settings.Identity.(*identity.Libp2pIdentity)
+	if !ok {
+		return nil, fmt.Errorf("Invalid identity")
+	}
+
+	opts = append(opts, libp2p.Identity(id.GetLibp2pPrivateKey()))
 
 	p2pHost, err := libp2p.New(
 		settings.Context,

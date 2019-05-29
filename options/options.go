@@ -2,7 +2,10 @@ package options
 
 import (
 	"context"
+	"io"
 	"time"
+
+	"github.com/runletapp/crabfs/identity"
 )
 
 // Settings init settings
@@ -19,6 +22,8 @@ type Settings struct {
 	ReprovideInterval time.Duration
 
 	GCInterval time.Duration
+
+	Identity identity.Identity
 }
 
 // Option represents a single init option
@@ -42,6 +47,9 @@ func (s *Settings) SetDefaults() error {
 	s.ReprovideInterval = 1 * time.Minute
 
 	s.GCInterval = 1 * time.Hour
+
+	// Defaults to create a new one
+	s.Identity = nil
 
 	return nil
 }
@@ -114,6 +122,27 @@ func ReprovideInterval(interval time.Duration) Option {
 func GCInterval(interval time.Duration) Option {
 	return func(s *Settings) error {
 		s.GCInterval = interval
+		return nil
+	}
+}
+
+// Identity set the node identity
+func Identity(id identity.Identity) Option {
+	return func(s *Settings) error {
+		s.Identity = id
+		return nil
+	}
+}
+
+// IdentityFromReader set the node identity from a reader
+func IdentityFromReader(r io.Reader) Option {
+	return func(s *Settings) error {
+		id, err := identity.UnmarshalIdentity(r)
+		if err != nil {
+			return err
+		}
+
+		s.Identity = id
 		return nil
 	}
 }
