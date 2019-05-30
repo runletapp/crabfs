@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "sourceRoot": "./src",
+        "outDir": "./build",
+        "allowSyntheticDefaultImports": true,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "sourceMap": true,
+        "target": "es2017",
+        "experimentalDecorators": true,
+        "esModuleInterop": true,
+        "lib": ["es5", "es6", "dom", "dom.iterable"]
+    },
+    "exclude": []
+}
