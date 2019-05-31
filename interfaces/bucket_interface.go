@@ -16,4 +16,6 @@ type Bucket interface {
 
 	// Remove deletes a file from the storage
 	Remove(ctx context.Context, filename string) error
+
+	Chroot(dir string) Bucket
 }

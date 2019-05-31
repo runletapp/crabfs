@@ -79,3 +79,17 @@ func (mr *MockBucketMockRecorder) Remove(ctx, filename interface{}) *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockBucket)(nil).Remove), ctx, filename)
 }
+
+// Chroot mocks base method
+func (m *MockBucket) Chroot(dir string) interfaces.Bucket {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Chroot", dir)
+	ret0, _ := ret[0].(interfaces.Bucket)
+	return ret0
+}
+
+// Chroot indicates an expected call of Chroot
+func (mr *MockBucketMockRecorder) Chroot(dir interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Chroot", reflect.TypeOf((*MockBucket)(nil).Chroot), dir)
+}

@@ -182,6 +182,21 @@ func (mr *MockCoreMockRecorder) WithBucket(privateKey, bucket interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithBucket", reflect.TypeOf((*MockCore)(nil).WithBucket), privateKey, bucket)
 }
 
+// WithBucketRoot mocks base method
+func (m *MockCore) WithBucketRoot(privateKey crypto.PrivKey, bucket, baseDir string) (interfaces.Bucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithBucketRoot", privateKey, bucket, baseDir)
+	ret0, _ := ret[0].(interfaces.Bucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WithBucketRoot indicates an expected call of WithBucketRoot
+func (mr *MockCoreMockRecorder) WithBucketRoot(privateKey, bucket, baseDir interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithBucketRoot", reflect.TypeOf((*MockCore)(nil).WithBucketRoot), privateKey, bucket, baseDir)
+}
+
 // PublishPublicKey mocks base method
 func (m *MockCore) PublishPublicKey(publicKey crypto.PubKey) error {
 	m.ctrl.T.Helper()

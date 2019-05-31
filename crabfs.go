@@ -257,7 +257,15 @@ func (fs *crabFS) WithBucket(privateKey crabfsCrypto.PrivKey, bucket string) (in
 		return nil, err
 	}
 
-	return BucketCoreNew(fs, privateKey, bucket), nil
+	return BucketCoreNew(fs, privateKey, bucket, ""), nil
+}
+
+func (fs *crabFS) WithBucketRoot(privateKey crabfsCrypto.PrivKey, bucket string, baseDir string) (interfaces.Bucket, error) {
+	if err := fs.PublishPublicKey(privateKey.GetPublic()); err != nil {
+		return nil, err
+	}
+
+	return BucketCoreNew(fs, privateKey, bucket, baseDir), nil
 }
 
 func (fs *crabFS) PublishPublicKey(publicKey crabfsCrypto.PubKey) error {

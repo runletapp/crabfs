@@ -42,6 +42,9 @@ type Core interface {
 	// WithBucket wraps calls to a single bucket
 	WithBucket(privateKey crabfsCrypto.PrivKey, bucket string) (Bucket, error)
 
+	// WithBucketRoot wraps calls to a single bucket and base directory
+	WithBucketRoot(privateKey crabfsCrypto.PrivKey, bucket string, baseDir string) (Bucket, error)
+
 	// PublishPublicKey publishes a public key to the network
 	PublishPublicKey(publicKey crabfsCrypto.PubKey) error
 
