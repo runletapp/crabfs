@@ -83,6 +83,21 @@ func (mr *MockHostMockRecorder) Publish(ctx, privateKey, cipherKey, bucket, file
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockHost)(nil).Publish), ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
 }
 
+// PublishAndLock mocks base method
+func (m *MockHost) PublishAndLock(ctx context.Context, privateKey crypto.PrivKey, cipherKey []byte, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) (*protos.LockToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishAndLock", ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
+	ret0, _ := ret[0].(*protos.LockToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PublishAndLock indicates an expected call of PublishAndLock
+func (mr *MockHostMockRecorder) PublishAndLock(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAndLock", reflect.TypeOf((*MockHost)(nil).PublishAndLock), ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
+}
+
 // Remove mocks base method
 func (m *MockHost) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()

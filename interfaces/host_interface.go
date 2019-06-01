@@ -22,6 +22,9 @@ type Host interface {
 	// Publish publishes a block map
 	Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) error
 
+	// PublishAndLock publishes a locked block map
+	PublishAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) (*pb.LockToken, error)
+
 	// Remove removes content from the network
 	Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error
 

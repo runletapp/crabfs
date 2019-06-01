@@ -380,3 +380,59 @@ func TestHostUnlockInvalidToken(t *testing.T) {
 
 	assert.NotNil(host.Unlock(context.Background(), privKey, "test", "test.txt", token))
 }
+
+func TestHostPublishAndLock(t *testing.T) {
+	assert := assert.New(t)
+	host, _, bs, ctrl := setUpHostTestWithDsAndBs(t)
+	defer setDownHostTest(ctrl)
+
+	block := blocks.NewBlock([]byte("abc"))
+	assert.Nil(bs.Put(block))
+
+	blockMap := interfaces.BlockMap{}
+	blockMap[0] = &pb.BlockMetadata{
+		Start: 0,
+		Size:  int64(len(block.RawData())),
+		Cid:   block.Cid().Bytes(),
+	}
+
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
+
+	cipherKey := []byte("0123456789abcdef")
+
+	token, err := host.PublishAndLock(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData())))
+	assert.Nil(err)
+	assert.NotNil(token)
+	assert.NotEmpty(token.Token)
+}
+
+func TestHostPublishAndLockUnlock(t *testing.T) {
+	assert := assert.New(t)
+	host, _, bs, ctrl := setUpHostTestWithDsAndBs(t)
+	defer setDownHostTest(ctrl)
+
+	block := blocks.NewBlock([]byte("abc"))
+	assert.Nil(bs.Put(block))
+
+	blockMap := interfaces.BlockMap{}
+	blockMap[0] = &pb.BlockMetadata{
+		Start: 0,
+		Size:  int64(len(block.RawData())),
+		Cid:   block.Cid().Bytes(),
+	}
+
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+	assert.Nil(host.PutPublicKey(privKey.GetPublic()))
+
+	cipherKey := []byte("0123456789abcdef")
+
+	token, err := host.PublishAndLock(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData())))
+	assert.Nil(err)
+	assert.NotNil(token)
+	assert.NotEmpty(token.Token)
+
+	assert.Nil(host.Unlock(context.Background(), privKey, "test", "test.txt", token))
+}

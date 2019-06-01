@@ -42,6 +42,10 @@ func (b *bucketCoreImpl) Put(ctx context.Context, filename string, file io.Reade
 	return b.fs.Put(ctx, b.privateKey, b.bucket, path.Join(b.root, filename), file, mtime)
 }
 
+func (b *bucketCoreImpl) PutAndLock(ctx context.Context, filename string, file io.Reader, mtime time.Time) (*pb.LockToken, error) {
+	return b.fs.PutAndLock(ctx, b.privateKey, b.bucket, path.Join(b.root, filename), file, mtime)
+}
+
 func (b *bucketCoreImpl) Remove(ctx context.Context, filename string) error {
 	return b.fs.Remove(ctx, b.privateKey, b.bucket, path.Join(b.root, filename))
 }

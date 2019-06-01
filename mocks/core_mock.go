@@ -70,6 +70,21 @@ func (mr *MockCoreMockRecorder) Put(ctx, privateKey, bucket, filename, file, mti
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCore)(nil).Put), ctx, privateKey, bucket, filename, file, mtime)
 }
 
+// PutAndLock mocks base method
+func (m *MockCore) PutAndLock(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, file io.Reader, mtime time.Time) (*protos.LockToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutAndLock", ctx, privateKey, bucket, filename, file, mtime)
+	ret0, _ := ret[0].(*protos.LockToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutAndLock indicates an expected call of PutAndLock
+func (mr *MockCoreMockRecorder) PutAndLock(ctx, privateKey, bucket, filename, file, mtime interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAndLock", reflect.TypeOf((*MockCore)(nil).PutAndLock), ctx, privateKey, bucket, filename, file, mtime)
+}
+
 // Remove mocks base method
 func (m *MockCore) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()

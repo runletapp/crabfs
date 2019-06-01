@@ -316,6 +316,33 @@ func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivK
 	return host.publishObject(ctx, privateKey, object, bucket, filename)
 }
 
+func (host *hostImpl) PublishAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) (*pb.LockToken, error) {
+	token, err := host.generateLockToken()
+	if err != nil {
+		return nil, err
+	}
+
+	tokenData, err := proto.Marshal(token)
+	if err != nil {
+		return nil, err
+	}
+
+	object := &pb.CrabObject{
+		Blocks: blockMap,
+		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
+		Size:   size,
+		Key:    cipherKey,
+		Delete: false,
+		Lock:   tokenData,
+	}
+
+	if err := host.publishObject(ctx, privateKey, object, bucket, filename); err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
 func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
 	if host.dht.RoutingTable().Size() > 0 {
 		return host.dht.Provide(ctx, cid, true)

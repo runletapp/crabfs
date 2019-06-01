@@ -186,24 +186,20 @@ func (fs *crabFS) generateKey(size int) ([]byte, error) {
 	return b, err
 }
 
-func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	defer locker.Unlock()
-
+func (fs *crabFS) prepareFile(privateKey crabfsCrypto.PrivKey, file io.Reader) (interfaces.BlockMap, []byte, int64, error) {
 	key, err := fs.generateKey(32) // aes-256
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
 
 	cipher, err := aes.NewCipher(key)
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
 
 	slicer, err := BlockSlicerNew(file, fs.settings.BlockSize, cipher)
 	if err != nil {
-		return err
+		return nil, nil, 0, err
 	}
 
 	blockMap := interfaces.BlockMap{}
@@ -212,7 +208,7 @@ func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 	blockMeta, block, n, err := slicer.Next()
 	for {
 		if err != nil && err != io.EOF {
-			return err
+			return nil, nil, 0, err
 		}
 
 		if block == nil {
@@ -220,7 +216,7 @@ func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 		}
 
 		if err := fs.blockstore.Put(block); err != nil {
-			return err
+			return nil, nil, 0, err
 		}
 
 		blockMap[blockMeta.Start] = blockMeta
@@ -232,10 +228,36 @@ func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 
 	cipherKey, err := privateKey.GetPublic().Encrypt(key, []byte("crabfs"))
 	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	return blockMap, cipherKey, totalSize, nil
+}
+
+func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error {
+	locker := fs.gc.Locker()
+	locker.Lock()
+	defer locker.Unlock()
+
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	if err != nil {
 		return err
 	}
 
 	return fs.host.Publish(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, totalSize)
+}
+
+func (fs *crabFS) PutAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) (*pb.LockToken, error) {
+	locker := fs.gc.Locker()
+	locker.Lock()
+	defer locker.Unlock()
+
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	if err != nil {
+		return nil, err
+	}
+
+	return fs.host.PublishAndLock(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, totalSize)
 }
 
 func (fs *crabFS) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {

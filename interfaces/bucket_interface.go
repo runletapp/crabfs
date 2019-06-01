@@ -16,6 +16,9 @@ type Bucket interface {
 	// Put writes a file to the storage
 	Put(ctx context.Context, filename string, file io.Reader, mtime time.Time) error
 
+	// PutAndLock writes a file to the storage and locks it
+	PutAndLock(ctx context.Context, filename string, file io.Reader, mtime time.Time) (*pb.LockToken, error)
+
 	// Remove deletes a file from the storage
 	Remove(ctx context.Context, filename string) error
 
