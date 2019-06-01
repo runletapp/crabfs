@@ -17,4 +17,10 @@ var (
 
 	// ErrBlockNotFound the request block was not found
 	ErrBlockNotFound = errors.New("Block not found")
+
+	// ErrFileLocked the requested file is locked
+	ErrFileLocked = errors.New("Request file is locked")
+
+	// ErrFileLockedNotOwned the requested file is not locked by this peer
+	ErrFileLockedNotOwned = errors.New("Request file is not locked by this peer")
 )

@@ -8,6 +8,7 @@ import (
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
+	pb "github.com/runletapp/crabfs/protos"
 )
 
 var _ interfaces.Bucket = &bucketCoreImpl{}
@@ -47,4 +48,16 @@ func (b *bucketCoreImpl) Remove(ctx context.Context, filename string) error {
 
 func (b *bucketCoreImpl) Chroot(dir string) interfaces.Bucket {
 	return BucketCoreNew(b.fs, b.privateKey, b.bucket, path.Join(b.root, dir))
+}
+
+func (b *bucketCoreImpl) Lock(ctx context.Context, filename string) (*pb.LockToken, error) {
+	return b.fs.Lock(ctx, b.privateKey, b.bucket, path.Join(b.root, filename))
+}
+
+func (b *bucketCoreImpl) Unlock(ctx context.Context, filename string, token *pb.LockToken) error {
+	return b.fs.Unlock(ctx, b.privateKey, b.bucket, path.Join(b.root, filename), token)
+}
+
+func (b *bucketCoreImpl) IsLocked(ctx context.Context, filename string) (bool, error) {
+	return b.fs.IsLocked(ctx, b.privateKey.GetPublic(), b.bucket, path.Join(b.root, filename))
 }

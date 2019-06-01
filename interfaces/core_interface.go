@@ -8,6 +8,7 @@ import (
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/identity"
+	pb "github.com/runletapp/crabfs/protos"
 )
 
 // Core interface
@@ -20,6 +21,15 @@ type Core interface {
 
 	// Remove deletes a file from the storage
 	Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error
+
+	// Lock locks a file to avoid replublishing and overwritting during sequential updates from a single writer
+	Lock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (*pb.LockToken, error)
+
+	// Unlock unlocks a file. See Lock
+	Unlock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, token *pb.LockToken) error
+
+	// IsLocked check if a file is locked
+	IsLocked(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (bool, error)
 
 	// GetID returns the network id of this node
 	GetID() string

@@ -12,6 +12,7 @@ import (
 	"github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
+	pb "github.com/runletapp/crabfs/protos"
 
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
@@ -165,6 +166,18 @@ func (fs *crabFS) Get(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 	}()
 
 	return fetcher, nil
+}
+
+func (fs *crabFS) Lock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (*pb.LockToken, error) {
+	return fs.host.Lock(ctx, privateKey, bucket, filename)
+}
+
+func (fs *crabFS) Unlock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, token *pb.LockToken) error {
+	return fs.host.Unlock(ctx, privateKey, bucket, filename, token)
+}
+
+func (fs *crabFS) IsLocked(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (bool, error) {
+	return fs.host.IsLocked(ctx, publicKey, bucket, filename)
 }
 
 func (fs *crabFS) generateKey(size int) ([]byte, error) {

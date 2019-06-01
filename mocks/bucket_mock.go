@@ -12,6 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/runletapp/crabfs/interfaces"
+	protos "github.com/runletapp/crabfs/protos"
 )
 
 // MockBucket is a mock of Bucket interface
@@ -78,6 +79,50 @@ func (m *MockBucket) Remove(ctx context.Context, filename string) error {
 func (mr *MockBucketMockRecorder) Remove(ctx, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockBucket)(nil).Remove), ctx, filename)
+}
+
+// Lock mocks base method
+func (m *MockBucket) Lock(ctx context.Context, filename string) (*protos.LockToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock", ctx, filename)
+	ret0, _ := ret[0].(*protos.LockToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Lock indicates an expected call of Lock
+func (mr *MockBucketMockRecorder) Lock(ctx, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockBucket)(nil).Lock), ctx, filename)
+}
+
+// IsLocked mocks base method
+func (m *MockBucket) IsLocked(ctx context.Context, filename string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLocked", ctx, filename)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsLocked indicates an expected call of IsLocked
+func (mr *MockBucketMockRecorder) IsLocked(ctx, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocked", reflect.TypeOf((*MockBucket)(nil).IsLocked), ctx, filename)
+}
+
+// Unlock mocks base method
+func (m *MockBucket) Unlock(ctx context.Context, filename string, token *protos.LockToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unlock", ctx, filename, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unlock indicates an expected call of Unlock
+func (mr *MockBucketMockRecorder) Unlock(ctx, filename, token interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockBucket)(nil).Unlock), ctx, filename, token)
 }
 
 // Chroot mocks base method

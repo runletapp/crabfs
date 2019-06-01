@@ -15,6 +15,7 @@ import (
 	crypto "github.com/runletapp/crabfs/crypto"
 	identity "github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
+	protos "github.com/runletapp/crabfs/protos"
 )
 
 // MockCore is a mock of Core interface
@@ -81,6 +82,50 @@ func (m *MockCore) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket
 func (mr *MockCoreMockRecorder) Remove(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockCore)(nil).Remove), ctx, privateKey, bucket, filename)
+}
+
+// Lock mocks base method
+func (m *MockCore) Lock(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) (*protos.LockToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock", ctx, privateKey, bucket, filename)
+	ret0, _ := ret[0].(*protos.LockToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Lock indicates an expected call of Lock
+func (mr *MockCoreMockRecorder) Lock(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockCore)(nil).Lock), ctx, privateKey, bucket, filename)
+}
+
+// Unlock mocks base method
+func (m *MockCore) Unlock(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, token *protos.LockToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unlock", ctx, privateKey, bucket, filename, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unlock indicates an expected call of Unlock
+func (mr *MockCoreMockRecorder) Unlock(ctx, privateKey, bucket, filename, token interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockCore)(nil).Unlock), ctx, privateKey, bucket, filename, token)
+}
+
+// IsLocked mocks base method
+func (m *MockCore) IsLocked(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLocked", ctx, publicKey, bucket, filename)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsLocked indicates an expected call of IsLocked
+func (mr *MockCoreMockRecorder) IsLocked(ctx, publicKey, bucket, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocked", reflect.TypeOf((*MockCore)(nil).IsLocked), ctx, publicKey, bucket, filename)
 }
 
 // GetID mocks base method

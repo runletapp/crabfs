@@ -7,10 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"strings"
 	"time"
 
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 
+	"github.com/google/uuid"
 	"github.com/ipfs/go-cid"
 
 	"github.com/golang/protobuf/proto"
@@ -245,19 +247,12 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (crabf
 	return pk, nil
 }
 
-func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto.PrivKey, object *pb.CrabObject, bucket string, filename string) error {
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
-	recordValue := &pb.CrabObject{
-		Blocks: blockMap,
-		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
-		Size:   size,
-		Key:    cipherKey,
-	}
-
-	data, err := proto.Marshal(recordValue)
+	data, err := proto.Marshal(object)
 	if err != nil {
 		return err
 	}
@@ -276,7 +271,7 @@ func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivK
 		return err
 	}
 
-	for _, blockMeta := range blockMap {
+	for _, blockMeta := range object.Blocks {
 		cid, _ := cid.Cast(blockMeta.Cid)
 		if err := host.provide(ctx, cid); err != nil {
 			return err
@@ -290,6 +285,19 @@ func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivK
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
 
 	return host.dhtPutValue(ctx, key, value)
+}
+
+func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
+	object := &pb.CrabObject{
+		Blocks: blockMap,
+		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
+		Size:   size,
+		Key:    cipherKey,
+		Delete: false,
+		Lock:   nil,
+	}
+
+	return host.publishObject(ctx, privateKey, object, bucket, filename)
 }
 
 func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
@@ -312,7 +320,7 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error) {
+func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.DHTNameRecord, *pb.CrabObject, error) {
 	bucketFilename := path.Join(bucket, filename)
 	publicKeyHash := publicKey.HashString()
 
@@ -320,31 +328,118 @@ func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.Pub
 	data, err := host.dht.GetValue(ctx, key)
 
 	// Not found in remote query, try local only
-	if err != nil && err == libp2pRouting.ErrNotFound {
+	if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
 		var err error
 		data, err = host.ds.Get(ipfsDatastore.NewKey(key))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else if err != nil {
-		return nil, err
-	} else if err == nil {
+		return nil, nil, err
+	}
+
+	var record pb.DHTNameRecord
+	if err := proto.Unmarshal(data, &record); err != nil {
+		return nil, nil, err
+	}
+
+	var value pb.CrabObject
+	if err := proto.Unmarshal(record.Data, &value); err != nil {
+		return nil, nil, err
+	}
+
+	// Only republish if there's no lock
+	if !host.isObjectLocked(&value) {
 		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
 			// Log
 		}
 	}
 
-	var record pb.DHTNameRecord
-	if err := proto.Unmarshal(data, &record); err != nil {
+	return &record, &value, nil
+}
+
+func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error) {
+	_, object, err := host.get(ctx, publicKey, bucket, filename)
+	return object, err
+}
+
+func (host *hostImpl) generateLockToken() (*pb.LockToken, error) {
+	tk, err := uuid.NewRandom()
+	if err != nil {
 		return nil, err
 	}
 
-	var value pb.CrabObject
-	if err := proto.Unmarshal(record.Data, &value); err != nil {
+	return &pb.LockToken{
+		Token: tk.String(),
+	}, nil
+}
+
+func (host *hostImpl) isObjectLocked(object *pb.CrabObject) bool {
+	return object.Lock != nil
+}
+
+func (host *hostImpl) IsLocked(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (bool, error) {
+	_, object, err := host.get(ctx, publicKey, bucket, filename)
+	if err != nil {
+		return false, err
+	}
+
+	// TODO: check if the lock owner is still alive
+	return host.isObjectLocked(object), nil
+}
+
+func (host *hostImpl) Lock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (*pb.LockToken, error) {
+	_, object, err := host.get(ctx, privateKey.GetPublic(), bucket, filename)
+	if err != nil {
 		return nil, err
 	}
 
-	return &value, nil
+	if object.Lock != nil {
+		// TODO: future work, store peer id in the lock and check if it's still alive,
+		// otherwise release the lock
+		return nil, ErrFileLocked
+	}
+
+	token, err := host.generateLockToken()
+	if err != nil {
+		return nil, err
+	}
+
+	tokenData, err := proto.Marshal(token)
+	if err != nil {
+		return nil, err
+	}
+
+	object.Lock = tokenData
+
+	if err := host.publishObject(ctx, privateKey, object, bucket, filename); err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+func (host *hostImpl) Unlock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, token *pb.LockToken) error {
+	_, object, err := host.get(ctx, privateKey.GetPublic(), bucket, filename)
+	if err != nil {
+		return err
+	}
+
+	if object.Lock == nil {
+		return nil
+	}
+
+	var lock pb.LockToken
+	if err := proto.Unmarshal(object.Lock, &lock); err != nil {
+		return err
+	}
+
+	if strings.Compare(lock.Token, token.Token) != 0 {
+		return ErrFileLockedNotOwned
+	}
+
+	object.Lock = nil
+	return host.publishObject(ctx, privateKey, object, bucket, filename)
 }
 
 func (host *hostImpl) FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo {
@@ -383,7 +478,6 @@ func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKe
 	// remove all blocks and set the delete flag to true
 	record := &pb.DHTNameRecord{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-		Delete:    true,
 	}
 
 	recordValue := &pb.CrabObject{
@@ -391,6 +485,7 @@ func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKe
 		Mtime:  time.Now().UTC().Format(time.RFC3339Nano),
 		Size:   0,
 		Key:    []byte{},
+		Delete: true,
 	}
 
 	data, err := proto.Marshal(recordValue)

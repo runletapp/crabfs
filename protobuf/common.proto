@@ -2,11 +2,14 @@ syntax = "proto3";
 
 package protos;
 
+message LockToken {
+    string token = 1;
+}
+
 message DHTNameRecord {
     string timestamp = 1;
     bytes data = 2;
     bytes signature = 3;
-    bool delete = 4;
 }
 
 message BlockMetadata {
@@ -21,6 +24,8 @@ message CrabObject {
     string mtime = 2;
     int64 size = 3;
     bytes key = 4;
+    bool delete = 5;
+    bytes lock = 6;
 }
 
 message BlockStreamRequest {

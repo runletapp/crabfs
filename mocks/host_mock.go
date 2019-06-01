@@ -112,6 +112,50 @@ func (mr *MockHostMockRecorder) GetContent(ctx, publicKey, bucket, filename inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContent", reflect.TypeOf((*MockHost)(nil).GetContent), ctx, publicKey, bucket, filename)
 }
 
+// Lock mocks base method
+func (m *MockHost) Lock(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) (*protos.LockToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock", ctx, privateKey, bucket, filename)
+	ret0, _ := ret[0].(*protos.LockToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Lock indicates an expected call of Lock
+func (mr *MockHostMockRecorder) Lock(ctx, privateKey, bucket, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockHost)(nil).Lock), ctx, privateKey, bucket, filename)
+}
+
+// Unlock mocks base method
+func (m *MockHost) Unlock(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string, token *protos.LockToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unlock", ctx, privateKey, bucket, filename, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unlock indicates an expected call of Unlock
+func (mr *MockHostMockRecorder) Unlock(ctx, privateKey, bucket, filename, token interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockHost)(nil).Unlock), ctx, privateKey, bucket, filename, token)
+}
+
+// IsLocked mocks base method
+func (m *MockHost) IsLocked(ctx context.Context, publicKey crypto.PubKey, bucket, filename string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLocked", ctx, publicKey, bucket, filename)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsLocked indicates an expected call of IsLocked
+func (mr *MockHostMockRecorder) IsLocked(ctx, publicKey, bucket, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocked", reflect.TypeOf((*MockHost)(nil).IsLocked), ctx, publicKey, bucket, filename)
+}
+
 // FindProviders mocks base method
 func (m *MockHost) FindProviders(ctx context.Context, blockMeta *protos.BlockMetadata) <-chan go_libp2p_peerstore.PeerInfo {
 	m.ctrl.T.Helper()
