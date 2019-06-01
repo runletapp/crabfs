@@ -187,6 +187,22 @@ func (host *hostImpl) Reprovide(ctx context.Context) error {
 	}
 
 	for result := range results.Next() {
+		var record pb.DHTNameRecord
+		if err := proto.Unmarshal(result.Value, &record); err != nil {
+			// Invalid key, do not reprovide it
+			continue
+		}
+		object, err := host.xObjectFromRecord(&record)
+		if err != nil {
+			// Invalid key, do not reprovide it
+			continue
+		}
+
+		if host.isObjectLocked(object) {
+			// Do not reprovide locked objects
+			continue
+		}
+
 		host.dhtPutValue(ctx, result.Key, result.Value)
 	}
 
@@ -320,6 +336,15 @@ func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte)
 	return nil
 }
 
+func (host *hostImpl) xObjectFromRecord(record *pb.DHTNameRecord) (*pb.CrabObject, error) {
+	var object pb.CrabObject
+	if err := proto.Unmarshal(record.Data, &object); err != nil {
+		return nil, err
+	}
+
+	return &object, nil
+}
+
 func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.DHTNameRecord, *pb.CrabObject, error) {
 	bucketFilename := path.Join(bucket, filename)
 	publicKeyHash := publicKey.HashString()
@@ -343,19 +368,19 @@ func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bu
 		return nil, nil, err
 	}
 
-	var value pb.CrabObject
-	if err := proto.Unmarshal(record.Data, &value); err != nil {
+	object, err := host.xObjectFromRecord(&record)
+	if err != nil {
 		return nil, nil, err
 	}
 
 	// Only republish if there's no lock
-	if !host.isObjectLocked(&value) {
+	if !host.isObjectLocked(object) {
 		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
 			// Log
 		}
 	}
 
-	return &record, &value, nil
+	return &record, object, nil
 }
 
 func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error) {
