@@ -61,7 +61,9 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 	}
 
 	var rawDatastore ipfsDatastore.Datastore
-	if settings.Root == "" {
+	if settings.RelayOnly {
+		rawDatastore = ipfsDatastore.NewNullDatastore()
+	} else if settings.Root == "" {
 		// Use an in-memory datastore
 		rawDatastore = ipfsDatastore.NewMapDatastore()
 	} else {

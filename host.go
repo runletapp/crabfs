@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"path"
 	"strings"
 	"time"
@@ -237,7 +236,6 @@ func (host *hostImpl) GetAddrs() []string {
 	addrs := []string{}
 
 	hostAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", host.p2pHost.ID().Pretty()))
-	log.Printf("host addr: %v", hostAddr.String())
 	if err != nil {
 		return addrs
 	}
