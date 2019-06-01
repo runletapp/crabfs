@@ -378,6 +378,7 @@ func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bu
 
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
 	data, err := host.dht.GetValue(ctx, key)
+	fromRemote := true
 
 	// Not found in remote query, try local only
 	if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
@@ -386,6 +387,7 @@ func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bu
 		if err != nil {
 			return nil, nil, err
 		}
+		fromRemote = false
 	} else if err != nil {
 		return nil, nil, err
 	}
@@ -401,7 +403,7 @@ func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bu
 	}
 
 	// Only republish if there's no lock
-	if !host.isObjectLocked(object) {
+	if fromRemote && !host.isObjectLocked(object) {
 		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
 			// Log
 		}
