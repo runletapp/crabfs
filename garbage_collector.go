@@ -9,7 +9,7 @@ import (
 
 	pb "github.com/runletapp/crabfs/protos"
 
-	syncevent "github.com/GustavoKatel/SyncEvent"
+	syncevent "github.com/GustavoKatel/syncevent"
 	cid "github.com/ipfs/go-cid"
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"

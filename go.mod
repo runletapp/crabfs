@@ -3,7 +3,7 @@ module github.com/runletapp/crabfs
 go 1.12
 
 require (
-	github.com/GustavoKatel/SyncEvent v0.0.1
+	github.com/GustavoKatel/syncevent v0.0.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.1
