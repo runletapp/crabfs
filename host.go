@@ -9,22 +9,22 @@ import (
 	"strings"
 	"time"
 
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-
-	"github.com/google/uuid"
-	"github.com/ipfs/go-cid"
-
-	"github.com/golang/protobuf/proto"
-
-	"github.com/multiformats/go-multiaddr"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
 
+	asyncwork "github.com/GustavoKatel/asyncwork"
+	asyncworkIfaces "github.com/GustavoKatel/asyncwork/interfaces"
+	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multiaddr"
+
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
 	libp2pHost "github.com/libp2p/go-libp2p-core/host"
@@ -53,6 +53,8 @@ type hostImpl struct {
 	settings *options.Settings
 
 	blockstore blockstore.Blockstore
+
+	provideWorker asyncworkIfaces.AsyncWork
 }
 
 // HostNew creates a new host
@@ -92,11 +94,22 @@ func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore b
 
 // HostNewWithP2P creates a new host with an underlying p2p host
 func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
+	provideWorker, err := asyncwork.NewWithContext(settings.Context)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := provideWorker.Start(); err != nil {
+		return nil, err
+	}
+
 	newHost := &hostImpl{
 		settings: settings,
 
 		ds:         ds,
 		blockstore: blockstore,
+
+		provideWorker: provideWorker,
 	}
 
 	// Configure peer discovery and key validator
@@ -287,7 +300,9 @@ func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto
 
 	for _, blockMeta := range object.Blocks {
 		cid, _ := cid.Cast(blockMeta.Cid)
-		if err := host.provide(ctx, cid); err != nil {
+		if err := host.provideWorker.PostJob(func(ctx context.Context) error {
+			return host.provide(ctx, cid)
+		}); err != nil {
 			return err
 		}
 	}
