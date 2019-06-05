@@ -25,6 +25,12 @@ type Host interface {
 	// PublishAndLock publishes a locked block map
 	PublishAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64) (*pb.LockToken, error)
 
+	// PublishWithCacheTTL same as Publish but specifies a cache ttl timeout.
+	// This will cache the content in the nodes, no updates will be retrieved
+	// from the network until the ttl is timed out
+	// ttl is in seconds.
+	PublishWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap BlockMap, mtime time.Time, size int64, ttl uint64) error
+
 	// Remove removes content from the network
 	Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error
 

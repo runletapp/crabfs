@@ -15,8 +15,11 @@ var (
 	// ErrInvalidOffset an invalid path was given
 	ErrInvalidOffset = errors.New("Invalid offset")
 
-	// ErrBlockNotFound the request block was not found
+	// ErrBlockNotFound the requested block was not found
 	ErrBlockNotFound = errors.New("Block not found")
+
+	// ErrObjectNotFound the requested object was not found
+	ErrObjectNotFound = errors.New("Object not found")
 
 	// ErrFileLocked the requested file is locked
 	ErrFileLocked = errors.New("Request file is locked")

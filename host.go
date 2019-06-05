@@ -355,6 +355,20 @@ func (host *hostImpl) PublishAndLock(ctx context.Context, privateKey crabfsCrypt
 	return token, nil
 }
 
+func (host *hostImpl) PublishWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64, ttl uint64) error {
+	object := &pb.CrabObject{
+		Blocks:   blockMap,
+		Mtime:    mtime.UTC().Format(time.RFC3339Nano),
+		Size:     size,
+		Key:      cipherKey,
+		Delete:   false,
+		Lock:     nil,
+		CacheTTL: ttl,
+	}
+
+	return host.publishObject(ctx, privateKey, object, bucket, filename)
+}
+
 func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
 	if host.dht.RoutingTable().Size() > 0 {
 		return host.dht.Provide(ctx, cid, true)
@@ -384,41 +398,77 @@ func (host *hostImpl) xObjectFromRecord(record *pb.DHTNameRecord) (*pb.CrabObjec
 	return &object, nil
 }
 
+func (host *hostImpl) getCache(ctx context.Context, key string) *time.Time {
+	cacheData, err := host.ds.Get(ipfsDatastore.NewKey(key))
+	if err != nil {
+		return nil
+	}
+
+	cache, err := time.Parse(time.RFC3339Nano, string(cacheData))
+	if err != nil {
+		return nil
+	}
+
+	return &cache
+}
+
 func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.DHTNameRecord, *pb.CrabObject, error) {
 	bucketFilename := path.Join(bucket, filename)
 	publicKeyHash := publicKey.HashString()
 
 	key := KeyFromFilename(publicKeyHash, bucketFilename)
-	data, err := host.dht.GetValue(ctx, key)
-	fromRemote := true
+	cacheKey := CacheKeyFromFilename(publicKeyHash, bucketFilename)
 
-	// Not found in remote query, try local only
-	if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
-		var err error
-		data, err = host.ds.Get(ipfsDatastore.NewKey(key))
-		if err != nil {
-			return nil, nil, err
+	cache := host.getCache(ctx, cacheKey)
+
+	var object *pb.CrabObject
+	var record pb.DHTNameRecord
+
+	dataLocal, err := host.ds.Get(ipfsDatastore.NewKey(key))
+	if err == nil {
+		if err := proto.Unmarshal(dataLocal, &record); err == nil {
+			object, err = host.xObjectFromRecord(&record)
+			if err == nil {
+				// Early return. The object is cached and the ttl is still valid
+				if cache != nil && (time.Duration(object.CacheTTL)*time.Second) > time.Now().Sub(*cache) {
+					return &record, object, nil
+				}
+			}
 		}
-		fromRemote = false
+
+	}
+
+	// Not found in local query and/or cache is outdated. Query remote
+	data, err := host.dht.GetValue(ctx, key)
+
+	if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
+		if object == nil {
+			return nil, nil, ErrObjectNotFound
+		}
+
+		return &record, object, nil
 	} else if err != nil {
 		return nil, nil, err
 	}
 
-	var record pb.DHTNameRecord
 	if err := proto.Unmarshal(data, &record); err != nil {
 		return nil, nil, err
 	}
 
-	object, err := host.xObjectFromRecord(&record)
+	object, err = host.xObjectFromRecord(&record)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Only republish if there's no lock
-	if fromRemote && !host.isObjectLocked(object) {
+	if !host.isObjectLocked(object) {
 		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
 			// Log
 		}
+	}
+
+	if err := host.ds.Put(ipfsDatastore.NewKey(cacheKey), []byte(time.Now().UTC().Format(time.RFC3339Nano))); err != nil {
+		return nil, nil, err
 	}
 
 	return &record, object, nil

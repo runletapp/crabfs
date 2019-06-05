@@ -26,6 +26,7 @@ message CrabObject {
     bytes key = 4;
     bool delete = 5;
     bytes lock = 6;
+    uint64 cacheTTL = 7; // seconds
 }
 
 message BlockStreamRequest {

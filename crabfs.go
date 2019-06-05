@@ -249,6 +249,19 @@ func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 	return fs.host.Publish(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, totalSize)
 }
 
+func (fs *crabFS) PutWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time, ttl uint64) error {
+	locker := fs.gc.Locker()
+	locker.Lock()
+	defer locker.Unlock()
+
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	if err != nil {
+		return err
+	}
+
+	return fs.host.PublishWithCacheTTL(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, totalSize, ttl)
+}
+
 func (fs *crabFS) PutAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) (*pb.LockToken, error) {
 	locker := fs.gc.Locker()
 	locker.Lock()

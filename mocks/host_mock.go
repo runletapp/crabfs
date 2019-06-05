@@ -98,6 +98,20 @@ func (mr *MockHostMockRecorder) PublishAndLock(ctx, privateKey, cipherKey, bucke
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAndLock", reflect.TypeOf((*MockHost)(nil).PublishAndLock), ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size)
 }
 
+// PublishWithCacheTTL mocks base method
+func (m *MockHost) PublishWithCacheTTL(ctx context.Context, privateKey crypto.PrivKey, cipherKey []byte, bucket, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64, ttl uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishWithCacheTTL", ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size, ttl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PublishWithCacheTTL indicates an expected call of PublishWithCacheTTL
+func (mr *MockHostMockRecorder) PublishWithCacheTTL(ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size, ttl interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishWithCacheTTL", reflect.TypeOf((*MockHost)(nil).PublishWithCacheTTL), ctx, privateKey, cipherKey, bucket, filename, blockMap, mtime, size, ttl)
+}
+
 // Remove mocks base method
 func (m *MockHost) Remove(ctx context.Context, privateKey crypto.PrivKey, bucket, filename string) error {
 	m.ctrl.T.Helper()

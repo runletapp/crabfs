@@ -82,6 +82,20 @@ func (mr *MockBucketMockRecorder) PutAndLock(ctx, filename, file, mtime interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAndLock", reflect.TypeOf((*MockBucket)(nil).PutAndLock), ctx, filename, file, mtime)
 }
 
+// PutWithCacheTTL mocks base method
+func (m *MockBucket) PutWithCacheTTL(ctx context.Context, filename string, file io.Reader, mtime time.Time, ttl uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutWithCacheTTL", ctx, filename, file, mtime, ttl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutWithCacheTTL indicates an expected call of PutWithCacheTTL
+func (mr *MockBucketMockRecorder) PutWithCacheTTL(ctx, filename, file, mtime, ttl interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutWithCacheTTL", reflect.TypeOf((*MockBucket)(nil).PutWithCacheTTL), ctx, filename, file, mtime, ttl)
+}
+
 // Remove mocks base method
 func (m *MockBucket) Remove(ctx context.Context, filename string) error {
 	m.ctrl.T.Helper()

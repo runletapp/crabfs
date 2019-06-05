@@ -91,7 +91,7 @@ func writer(ctx context.Context, fs interfaces.Bucket, filename string) {
 
 	log.Printf("Saving...")
 
-	if err := fs.Put(ctx, filename, file, time.Now()); err != nil {
+	if err := fs.PutWithCacheTTL(ctx, filename, file, time.Now(), 60); err != nil {
 		panic(err)
 	}
 
