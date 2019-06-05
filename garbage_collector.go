@@ -9,7 +9,7 @@ import (
 
 	pb "github.com/runletapp/crabfs/protos"
 
-	syncevent "github.com/GustavoKatel/syncevent"
+	"github.com/GustavoKatel/asyncutils/event"
 	cid "github.com/ipfs/go-cid"
 	ipfsDatastore "github.com/ipfs/go-datastore"
 	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
@@ -31,7 +31,7 @@ type garbageCollectorImpl struct {
 
 	locker *sync.RWMutex
 
-	event syncevent.SyncEvent
+	event event.Event
 }
 
 // GarbageCollectorNew basic implementation of blockstore garbage collector
@@ -46,7 +46,7 @@ func GarbageCollectorNew(ctx context.Context, interval time.Duration, ds ipfsDat
 		bs: bs,
 
 		locker: &sync.RWMutex{},
-		event:  syncevent.NewSyncEvent(false),
+		event:  event.NewEvent(false),
 	}
 
 	return gc, nil

@@ -3,8 +3,7 @@ module github.com/runletapp/crabfs
 go 1.12
 
 require (
-	github.com/GustavoKatel/asyncwork v0.0.4
-	github.com/GustavoKatel/syncevent v0.0.1
+	github.com/GustavoKatel/asyncutils v0.0.0-20190605123401-c793d75252f9
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.1
