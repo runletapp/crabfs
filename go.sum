@@ -1,8 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7/go.mod h1:bOvUY6CB00SOBii9/FifXqc0awNKxLFCL/+pkDPuyl8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/GustavoKatel/asyncutils v0.0.0-20190605123401-c793d75252f9 h1:GpWTy8KFgJt2wXopC4IUO50Fc8RCEZyw66ffcwPmSEE=
-github.com/GustavoKatel/asyncutils v0.0.0-20190605123401-c793d75252f9/go.mod h1:YNTrNQtWr2UBofJtsMgMYyG/1GBOasHBlpZZ9UCHXv4=
+github.com/GustavoKatel/asyncutils v0.0.1 h1:I3dPBazrZOW/3auuskG/DLgFHEHyNDgeMBnFdL+e/rU=
+github.com/GustavoKatel/asyncutils v0.0.1/go.mod h1:YNTrNQtWr2UBofJtsMgMYyG/1GBOasHBlpZZ9UCHXv4=
 github.com/Kubuxu/go-os-helper v0.0.1/go.mod h1:N8B+I7vPCT80IcP58r50u4+gEEcsZETFUpAzWW2ep1Y=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/btcsuite/btcd v0.0.0-20190213025234-306aecffea32/go.mod h1:DrZx5ec/dmnfpw9KyYoQyYo7d0KEvTkk/5M/vbZjAr8=
