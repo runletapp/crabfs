@@ -152,7 +152,7 @@ func TestHostReprovideNoPeers(t *testing.T) {
 	host, ctrl := setUpHostTest(t)
 	defer setDownHostTest(ctrl)
 
-	assert.Nil(host.Reprovide(context.Background()))
+	assert.Nil(host.Reprovide(context.Background(), true))
 }
 
 func TestHostReprovideWithPeers(t *testing.T) {
@@ -160,7 +160,7 @@ func TestHostReprovideWithPeers(t *testing.T) {
 	host, _, _, ctrl := setUpHostTestWithRelay(t)
 	defer setDownHostTest(ctrl)
 
-	assert.Nil(host.Reprovide(context.Background()))
+	assert.Nil(host.Reprovide(context.Background(), true))
 }
 
 func TestHostReprovideWithPeersAndBlocks(t *testing.T) {
@@ -171,7 +171,7 @@ func TestHostReprovideWithPeersAndBlocks(t *testing.T) {
 	block := blocks.NewBlock([]byte("abc"))
 	assert.Nil(bs.Put(block))
 
-	assert.Nil(host.Reprovide(context.Background()))
+	assert.Nil(host.Reprovide(context.Background(), true))
 }
 
 func TestHostReprovideWithPeersAndContent(t *testing.T) {
@@ -199,7 +199,7 @@ func TestHostReprovideWithPeersAndContent(t *testing.T) {
 
 	assert.Nil(host.Publish(context.Background(), privKey, cipherKey, "test", "test.txt", blockMap, time.Now(), int64(len(block.RawData()))))
 
-	assert.Nil(host.Reprovide(context.Background()))
+	assert.Nil(host.Reprovide(context.Background(), true))
 }
 
 func TestHostFindProvidersWithPeersAndContent(t *testing.T) {

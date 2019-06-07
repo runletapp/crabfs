@@ -243,17 +243,17 @@ func (mr *MockHostMockRecorder) GetAddrs() *gomock.Call {
 }
 
 // Reprovide mocks base method
-func (m *MockHost) Reprovide(ctx context.Context) error {
+func (m *MockHost) Reprovide(ctx context.Context, withBlocks bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Reprovide", ctx)
+	ret := m.ctrl.Call(m, "Reprovide", ctx, withBlocks)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Reprovide indicates an expected call of Reprovide
-func (mr *MockHostMockRecorder) Reprovide(ctx interface{}) *gomock.Call {
+func (mr *MockHostMockRecorder) Reprovide(ctx, withBlocks interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reprovide", reflect.TypeOf((*MockHost)(nil).Reprovide), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reprovide", reflect.TypeOf((*MockHost)(nil).Reprovide), ctx, withBlocks)
 }
 
 // PutPublicKey mocks base method

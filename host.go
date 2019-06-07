@@ -187,7 +187,7 @@ func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
 	}
 }
 
-func (host *hostImpl) Reprovide(ctx context.Context) error {
+func (host *hostImpl) Reprovide(ctx context.Context, withBlocks bool) error {
 	query := ipfsDatastoreQuery.Query{
 		Prefix: "/crabfs/",
 	}
@@ -217,13 +217,15 @@ func (host *hostImpl) Reprovide(ctx context.Context) error {
 		host.dhtPutValue(ctx, result.Key, result.Value)
 	}
 
-	ch, err := host.blockstore.AllKeysChan(ctx)
-	if err != nil {
-		return err
-	}
+	if withBlocks {
+		ch, err := host.blockstore.AllKeysChan(ctx)
+		if err != nil {
+			return err
+		}
 
-	for cid := range ch {
-		host.provide(ctx, cid)
+		for cid := range ch {
+			host.provide(ctx, cid)
+		}
 	}
 
 	return nil

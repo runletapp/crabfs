@@ -59,7 +59,7 @@ type Host interface {
 	GetAddrs() []string
 
 	// Reprovide republish blocks and block metas to the network
-	Reprovide(ctx context.Context) error
+	Reprovide(ctx context.Context, withBlocks bool) error
 
 	// PutPublicKey broadcast this public key to the network
 	PutPublicKey(publicKey crabfsCrypto.PubKey) error

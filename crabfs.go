@@ -123,7 +123,7 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 func (fs *crabFS) background() {
 	locker := fs.gc.Locker()
 	locker.Lock()
-	fs.host.Reprovide(fs.settings.Context)
+	fs.host.Reprovide(fs.settings.Context, true)
 	locker.Unlock()
 
 	ticker := time.NewTicker(fs.settings.ReprovideInterval)
@@ -132,7 +132,7 @@ func (fs *crabFS) background() {
 		case <-ticker.C:
 			locker := fs.gc.Locker()
 			locker.Lock()
-			fs.host.Reprovide(fs.settings.Context)
+			fs.host.Reprovide(fs.settings.Context, false)
 			locker.Unlock()
 		case <-fs.settings.Context.Done():
 			return
