@@ -15,7 +15,7 @@ import (
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
 
-	scheduler "github.com/GustavoKatel/asyncutils/scheduler"
+	"github.com/GustavoKatel/asyncutils/executor"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-cid"
@@ -53,7 +53,7 @@ type hostImpl struct {
 
 	blockstore blockstore.Blockstore
 
-	provideWorker scheduler.Scheduler
+	provideWorker executor.Executor
 }
 
 // HostNew creates a new host
@@ -93,7 +93,7 @@ func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore b
 
 // HostNewWithP2P creates a new host with an underlying p2p host
 func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
-	provideWorker, err := scheduler.NewWithContext(settings.Context)
+	provideWorker, err := executor.NewDefaultExecutorContext(settings.Context, 4)
 	if err != nil {
 		return nil, err
 	}
