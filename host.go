@@ -373,7 +373,7 @@ func (host *hostImpl) PublishWithCacheTTL(ctx context.Context, privateKey crabfs
 
 func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
 	if host.dht.RoutingTable().Size() > 0 {
-		return host.dht.Provide(ctx, cid, true)
+		return host.dht.Provide(ctx, cid, false)
 	}
 
 	return nil
