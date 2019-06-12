@@ -1,47 +1,54 @@
 package crabfs
 
 import (
-	"context"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	ipfsDatastore "github.com/ipfs/go-datastore"
-	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
-	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
-	crabfsCrypto "github.com/runletapp/crabfs/crypto"
-	"github.com/runletapp/crabfs/interfaces"
-	"github.com/runletapp/crabfs/mocks"
-	"github.com/runletapp/crabfs/options"
-	pb "github.com/runletapp/crabfs/protos"
+	"github.com/stretchr/testify/assert"
 )
 
-func setUpCrabFSTest(t *testing.T) (*crabFS, *gomock.Controller) {
-	ctrl := setUpBasicTest(t)
+func TestBasic(t *testing.T) {
+	assert := assert.New(t)
 
-	mockFetcher := func(ctx context.Context, fs interfaces.Core, object *pb.CrabObject, privateKey crabfsCrypto.PrivKey) (interfaces.Fetcher, error) {
-		return mocks.NewMockFetcher(ctrl), nil
-	}
+	fs, err := New()
+	assert.Nil(err)
 
-	return setUpCrabFSTestWithFetcherFactory(t, ctrl, mockFetcher)
+	assert.NotEmpty(fs.GetID())
+	assert.True(len(fs.GetAddrs()) > 0)
+
+	assert.NotNil(fs.Blockstore())
+	assert.NotNil(fs.Host())
+	assert.NotNil(fs.GarbageCollector())
+	assert.NotNil(fs.GetIdentity())
+
+	assert.Nil(fs.Close())
 }
 
-func setUpCrabFSTestWithFetcherFactory(t *testing.T, ctrl *gomock.Controller, mockFetcher interfaces.FetcherFactory) (*crabFS, *gomock.Controller) {
-	host := mocks.NewMockHost(ctrl)
-	settings := options.Settings{}
-	settings.SetDefaults()
+func TestBucket(t *testing.T) {
+	assert := assert.New(t)
 
-	datastore := ipfsDatastoreSync.MutexWrap(ipfsDatastore.NewMapDatastore())
+	fs, err := New()
+	assert.Nil(err)
+	defer fs.Close()
 
-	blockstore := ipfsBlockstore.NewBlockstore(datastore)
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
 
-	fs := &crabFS{
-		settings: &settings,
-		host:     host,
+	bucket, err := fs.WithBucket(privKey, "bkt")
+	assert.Nil(err)
+	assert.NotNil(bucket)
+}
 
-		datastore:      datastore,
-		blockstore:     blockstore,
-		fetcherFactory: mockFetcher,
-	}
+func TestBucketChroot(t *testing.T) {
+	assert := assert.New(t)
 
-	return fs, ctrl
+	fs, err := New()
+	assert.Nil(err)
+	defer fs.Close()
+
+	privKey, err := GenerateKeyPair()
+	assert.Nil(err)
+
+	bucket, err := fs.WithBucketRoot(privKey, "bkt", "/data")
+	assert.Nil(err)
+	assert.NotNil(bucket)
 }
