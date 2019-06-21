@@ -142,9 +142,51 @@ func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfs
 	return newHost, nil
 }
 
+func (host *hostImpl) Close() error {
+	if err := host.dht.Close(); err != nil {
+		return err
+	}
+
+	return host.p2pHost.Close()
+}
+
 func (host *hostImpl) Announce() error {
 	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
+
+	// Force first advertise
+	routingDiscovery.Advertise(host.settings.Context, "crabfs")
+	// for {
+	// 	_, err := routingDiscovery.Advertise(host.settings.Context, "crabfs")
+	// 	if err == nil {
+	// 		break
+	// 	}
+	// 	<-time.After(1 * time.Second)
+	// 	// log.Printf("Err here: %v", err)
+	// }
+
 	discovery.Advertise(host.settings.Context, routingDiscovery, "crabfs")
+
+	// peers, err := discovery.FindPeers(host.settings.Context, routingDiscovery, "crabfs")
+	// if err != nil {
+	// 	log.Printf("Discovery err: %v", err)
+	// } else {
+	// 	log.Printf("Found %d peers", len(peers))
+	// }
+
+	// if host.dht.RoutingTable().Size() == 0 {
+	// 	panic("Routing table 0")
+	// }
+
+	// ch, err := routingDiscovery.FindPeers(host.settings.Context, "crabfs", discoveryOptions.Limit(5))
+	// if err != nil {
+	// 	return err
+	// }
+	// for peer := range ch {
+	// 	log.Printf("Connecting to: %v %v", peer.String(), peer.Addrs)
+	// 	if err := host.p2pHost.Connect(host.settings.Context, peer); err != nil {
+	// 		log.Printf("Err: %v", err)
+	// 	}
+	// }
 
 	return nil
 }
@@ -224,7 +266,7 @@ func (host *hostImpl) Reprovide(ctx context.Context, withBlocks bool) error {
 		}
 
 		for cid := range ch {
-			host.provide(ctx, cid)
+			host.Provide(ctx, cid)
 		}
 	}
 
@@ -302,7 +344,7 @@ func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto
 	for _, blockMeta := range object.Blocks {
 		cid, _ := cid.Cast(blockMeta.Cid)
 		if err := host.provideWorker.PostJob(func(ctx context.Context) error {
-			return host.provide(ctx, cid)
+			return host.Provide(ctx, cid)
 		}); err != nil {
 			return err
 		}
@@ -371,7 +413,7 @@ func (host *hostImpl) PublishWithCacheTTL(ctx context.Context, privateKey crabfs
 	return host.publishObject(ctx, privateKey, object, bucket, filename)
 }
 
-func (host *hostImpl) provide(ctx context.Context, cid cid.Cid) error {
+func (host *hostImpl) Provide(ctx context.Context, cid cid.Cid) error {
 	if host.dht.RoutingTable().Size() > 0 {
 		return host.dht.Provide(ctx, cid, true)
 	}

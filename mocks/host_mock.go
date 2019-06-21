@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	go_cid "github.com/ipfs/go-cid"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	crypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
@@ -38,6 +39,20 @@ func NewMockHost(ctrl *gomock.Controller) *MockHost {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockHost) EXPECT() *MockHostMockRecorder {
 	return m.recorder
+}
+
+// Close mocks base method
+func (m *MockHost) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close
+func (mr *MockHostMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockHost)(nil).Close))
 }
 
 // Announce mocks base method
@@ -268,4 +283,18 @@ func (m *MockHost) PutPublicKey(publicKey crypto.PubKey) error {
 func (mr *MockHostMockRecorder) PutPublicKey(publicKey interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutPublicKey", reflect.TypeOf((*MockHost)(nil).PutPublicKey), publicKey)
+}
+
+// Provide mocks base method
+func (m *MockHost) Provide(ctx context.Context, cid go_cid.Cid) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Provide", ctx, cid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Provide indicates an expected call of Provide
+func (mr *MockHostMockRecorder) Provide(ctx, cid interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Provide", reflect.TypeOf((*MockHost)(nil).Provide), ctx, cid)
 }

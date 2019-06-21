@@ -141,6 +141,10 @@ func (fs *crabFS) background() {
 }
 
 func (fs *crabFS) Close() error {
+	if err := fs.host.Close(); err != nil {
+		return err
+	}
+
 	return fs.datastore.Close()
 }
 

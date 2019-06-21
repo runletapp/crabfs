@@ -225,6 +225,10 @@ func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.
 			return nil, err
 		}
 
+		if err := fetcher.fs.Host().Provide(fetcher.ctx, cid); err != nil {
+			return nil, err
+		}
+
 		return block, nil
 	}
 

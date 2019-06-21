@@ -68,6 +68,15 @@ func RelayNew(ctx context.Context, port uint, bootstrapPeers []string, id identi
 	return relay, nil
 }
 
+// Close closes this relay instance
+func (relay *Relay) Close() error {
+	if err := relay.host.Close(); err != nil {
+		return err
+	}
+
+	return relay.p2pRelayHost.Close()
+}
+
 // GetAddrs get the addresses that this node is bound to
 func (relay *Relay) GetAddrs() []string {
 	return relay.host.GetAddrs()

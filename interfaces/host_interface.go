@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	cid "github.com/ipfs/go-cid"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	pb "github.com/runletapp/crabfs/protos"
 
@@ -13,6 +14,9 @@ import (
 
 // Host p2p host abstraction
 type Host interface {
+	// Close closes this host and all open connections
+	Close() error
+
 	// Announce
 	Announce() error
 
@@ -63,4 +67,7 @@ type Host interface {
 
 	// PutPublicKey broadcast this public key to the network
 	PutPublicKey(publicKey crabfsCrypto.PubKey) error
+
+	// Provide publishes a block in the network
+	Provide(ctx context.Context, cid cid.Cid) error
 }
