@@ -70,7 +70,12 @@ func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore b
 
 	opts := []libp2p.Option{
 		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
-		libp2p.EnableRelay(libp2pCircuit.OptDiscovery),
+	}
+
+	if settings.RelayOnly {
+		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptHop))
+	} else {
+		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptDiscovery))
 	}
 
 	id, ok := settings.Identity.(*identity.Libp2pIdentity)
@@ -144,6 +149,10 @@ func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfs
 
 func (host *hostImpl) Close() error {
 	if err := host.dht.Close(); err != nil {
+		return err
+	}
+
+	if err := host.p2pHost.Network().Close(); err != nil {
 		return err
 	}
 
