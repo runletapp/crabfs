@@ -14,14 +14,14 @@ import (
 )
 
 func relayStart(ctx context.Context, bootstrapPeers []string, id identity.Identity) {
-	relay, err := crabfs.RelayNew(ctx, 1717, bootstrapPeers, id)
+	relay, err := crabfs.RelayNew(ctx, 1700, bootstrapPeers, id)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Printf("Relay id: %s\n", relay.GetRelayID())
+	log.Printf("ID: %s\n", relay.GetHostID())
 	for i, addr := range relay.GetAddrs() {
-		log.Printf("Relay addr [%d]: %s\n", i, addr)
+		log.Printf("Addr [%d]: %s\n", i, addr)
 	}
 }
 

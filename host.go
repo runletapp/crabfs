@@ -26,6 +26,7 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p"
 	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
+	"github.com/libp2p/go-libp2p-core/host"
 	libp2pHost "github.com/libp2p/go-libp2p-core/host"
 	libp2pNet "github.com/libp2p/go-libp2p-core/network"
 	libp2pRouting "github.com/libp2p/go-libp2p-core/routing"
@@ -33,6 +34,8 @@ import (
 	libp2pDht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2pDhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
+	routing "github.com/libp2p/go-libp2p-routing"
+	libp2pSwarm "github.com/libp2p/go-libp2p-swarm"
 	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
 )
 
@@ -58,46 +61,6 @@ type hostImpl struct {
 
 // HostNew creates a new host
 func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
-	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", settings.Port))
-	if err != nil {
-		return nil, err
-	}
-
-	sourceMultiAddrIP6, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/::/tcp/%d", settings.Port))
-	if err != nil {
-		return nil, err
-	}
-
-	opts := []libp2p.Option{
-		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
-	}
-
-	if settings.RelayOnly {
-		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptHop))
-	} else {
-		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptDiscovery))
-	}
-
-	id, ok := settings.Identity.(*identity.Libp2pIdentity)
-	if !ok {
-		return nil, fmt.Errorf("Invalid identity")
-	}
-
-	opts = append(opts, libp2p.Identity(id.GetLibp2pPrivateKey()))
-
-	p2pHost, err := libp2p.New(
-		settings.Context,
-		opts...,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return HostNewWithP2P(settings, p2pHost, ds, blockstore)
-}
-
-// HostNewWithP2P creates a new host with an underlying p2p host
-func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
 	provideWorker, err := executor.NewDefaultExecutorContext(settings.Context, 4)
 	if err != nil {
 		return nil, err
@@ -116,27 +79,69 @@ func HostNewWithP2P(settings *options.Settings, p2pHost libp2pHost.Host, ds ipfs
 		provideWorker: provideWorker,
 	}
 
-	// Configure peer discovery and key validator
-	dhtValidator := libp2pDhtOptions.NamespacedValidator(
-		"crabfs",
-		DHTNamespaceValidatorNew(settings.Context, newHost.GetSwarmPublicKey),
-	)
-	dhtPKValidator := libp2pDhtOptions.NamespacedValidator(
-		"crabfs_pk",
-		DHTNamespacePKValidatorNew(),
-	)
-	dht, err := libp2pDht.New(settings.Context, p2pHost, dhtValidator, dhtPKValidator, libp2pDhtOptions.Datastore(ds))
+	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", settings.Port))
 	if err != nil {
 		return nil, err
 	}
 
-	newHost.dht = dht
-
-	if err = dht.Bootstrap(settings.Context); err != nil {
+	sourceMultiAddrIP6, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/::/tcp/%d", settings.Port))
+	if err != nil {
 		return nil, err
 	}
 
-	newHost.p2pHost = libp2pRoutedHost.Wrap(p2pHost, dht)
+	opts := []libp2p.Option{
+		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
+	}
+
+	if settings.RelayOnly {
+		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptHop))
+	} else {
+		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptDiscovery), libp2p.EnableAutoRelay())
+	}
+
+	id, ok := settings.Identity.(*identity.Libp2pIdentity)
+	if !ok {
+		return nil, fmt.Errorf("Invalid identity")
+	}
+
+	opts = append(opts, libp2p.Identity(id.GetLibp2pPrivateKey()))
+
+	dhtCreator := func(h host.Host) (routing.PeerRouting, error) {
+		// Configure peer discovery and key validator
+		dhtValidator := libp2pDhtOptions.NamespacedValidator(
+			"crabfs",
+			DHTNamespaceValidatorNew(settings.Context, newHost.GetSwarmPublicKey),
+		)
+		dhtPKValidator := libp2pDhtOptions.NamespacedValidator(
+			"crabfs_pk",
+			DHTNamespacePKValidatorNew(),
+		)
+
+		dht, err := libp2pDht.New(settings.Context, h, dhtValidator, dhtPKValidator, libp2pDhtOptions.Datastore(ds))
+		if err != nil {
+			return nil, err
+		}
+
+		if err = dht.Bootstrap(settings.Context); err != nil {
+			return nil, err
+		}
+
+		newHost.dht = dht
+		return dht, nil
+	}
+
+	opts = append(opts, libp2p.Routing(dhtCreator))
+
+	p2pHost, err := libp2p.New(
+		settings.Context,
+		opts...,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	newHost.p2pHost = libp2pRoutedHost.Wrap(p2pHost, newHost.dht)
+	// newHost.p2pHost = p2pHost
 
 	newHost.p2pHost.SetStreamHandler(ProtocolV1, newHost.handleStreamV1)
 
@@ -620,6 +625,15 @@ func (host *hostImpl) FindProviders(ctx context.Context, blockMeta *pb.BlockMeta
 }
 
 func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.BlockMetadata, peer *libp2pPeerstore.PeerInfo) (io.Reader, error) {
+	circuitAddr, err := multiaddr.NewMultiaddr("/p2p-circuit/p2p/" + peer.ID.Pretty())
+	if err != nil {
+		return nil, err
+	}
+
+	// Add the relay addr circuit to this peer
+	host.p2pHost.Peerstore().AddAddr(peer.ID, circuitAddr, libp2pPeerstore.TempAddrTTL)
+
+	host.p2pHost.Network().(*libp2pSwarm.Swarm).Backoff().Clear(peer.ID)
 	stream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
 	if err != nil {
 		return nil, err
