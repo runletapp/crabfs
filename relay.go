@@ -5,7 +5,6 @@ import (
 
 	"github.com/runletapp/crabfs/identity"
 
-	libp2pHost "github.com/libp2p/go-libp2p-core/host"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 )
@@ -16,8 +15,7 @@ type Relay struct {
 
 	port uint
 
-	p2pRelayHost libp2pHost.Host
-	host         interfaces.Core
+	host interfaces.Core
 }
 
 // RelayNew creates a new relay instance
@@ -43,11 +41,7 @@ func RelayNew(ctx context.Context, port uint, bootstrapPeers []string, id identi
 
 // Close closes this relay instance
 func (relay *Relay) Close() error {
-	if err := relay.host.Close(); err != nil {
-		return err
-	}
-
-	return relay.p2pRelayHost.Close()
+	return relay.host.Close()
 }
 
 // GetAddrs get the addresses that this node is bound to

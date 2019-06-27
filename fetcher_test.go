@@ -90,6 +90,7 @@ func TestFetcherReadWholeBlock(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), block.Cid())
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -123,6 +124,7 @@ func TestFetcherReadOverCap(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), block.Cid())
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -166,6 +168,7 @@ func TestFetcherReadMidBlock(t *testing.T) {
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 1)
 	peerCh <- libp2pPeerstore.PeerInfo{}
 
+	host.EXPECT().Provide(gomock.Any(), block.Cid())
 	host.EXPECT().FindProviders(gomock.Any(), gomock.Any()).Return((<-chan libp2pPeerstore.PeerInfo)(peerCh))
 	host.EXPECT().CreateBlockStream(gomock.Any(), gomock.Any(), gomock.Any()).Return(bytes.NewReader(block.RawData()), nil)
 
@@ -219,6 +222,7 @@ func TestFetcherReadBetweenBlocks(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -275,6 +279,7 @@ func TestFetcherReadFinalBlock(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -331,6 +336,7 @@ func TestFetcherBigBlocks(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -521,6 +527,7 @@ func TestFetcherDownloadInvalidData(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -560,6 +567,7 @@ func TestFetcherDownloadShortRead(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
@@ -599,6 +607,7 @@ func TestFetcherDownloadErrorCreateStream(t *testing.T) {
 
 	host := mocks.NewMockHost(ctrl)
 	fs.(*mocks.MockCore).EXPECT().Host().AnyTimes().Return(host)
+	host.EXPECT().Provide(gomock.Any(), gomock.Any()).AnyTimes()
 
 	peerCh := make(chan libp2pPeerstore.PeerInfo, 2)
 	peerCh <- libp2pPeerstore.PeerInfo{}
