@@ -280,7 +280,10 @@ func (host *hostImpl) Reprovide(ctx context.Context, withBlocks bool) error {
 		}
 
 		for cid := range ch {
-			host.Provide(ctx, cid)
+			_cid := cid
+			host.provideWorker.PostJob(func(ctx context.Context) error {
+				return host.Provide(ctx, _cid)
+			})
 		}
 	}
 
