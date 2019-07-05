@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/runletapp/crabfs/identity"
+
+	ipfsConfig "github.com/ipfs/go-ipfs-config"
 )
 
 // Settings init settings
@@ -30,7 +32,7 @@ type Settings struct {
 type Option func(s *Settings) error
 
 // DefaultBootstrapPeers collection of peers to use as bootstrap by default
-var DefaultBootstrapPeers = []string{}
+var DefaultBootstrapPeers = ipfsConfig.DefaultBootstrapAddresses
 
 // SetDefaults set the default values
 func (s *Settings) SetDefaults() error {

@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"time"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
-	"github.com/runletapp/crabfs/identity"
 	"github.com/runletapp/crabfs/interfaces"
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
@@ -22,21 +21,17 @@ import (
 	"github.com/multiformats/go-multiaddr"
 
 	ipfsDatastore "github.com/ipfs/go-datastore"
-	ipfsDatastoreQuery "github.com/ipfs/go-datastore/query"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/libp2p/go-libp2p"
-	libp2pCircuit "github.com/libp2p/go-libp2p-circuit"
-	"github.com/libp2p/go-libp2p-core/host"
-	libp2pHost "github.com/libp2p/go-libp2p-core/host"
+	ipfsConfig "github.com/ipfs/go-ipfs-config"
+	ipfsCore "github.com/ipfs/go-ipfs/core"
+	ipfsCoreApi "github.com/ipfs/go-ipfs/core/coreapi"
+	ipfsPluginLoader "github.com/ipfs/go-ipfs/plugin/loader"
+	ipfsRepo "github.com/ipfs/go-ipfs/repo"
+	ipfsFSRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
+	ipfsCoreApiIface "github.com/ipfs/interface-go-ipfs-core"
 	libp2pNet "github.com/libp2p/go-libp2p-core/network"
-	libp2pRouting "github.com/libp2p/go-libp2p-core/routing"
-	discovery "github.com/libp2p/go-libp2p-discovery"
 	libp2pDht "github.com/libp2p/go-libp2p-kad-dht"
-	libp2pDhtOptions "github.com/libp2p/go-libp2p-kad-dht/opts"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
-	routing "github.com/libp2p/go-libp2p-routing"
-	libp2pSwarm "github.com/libp2p/go-libp2p-swarm"
-	libp2pRoutedHost "github.com/libp2p/go-libp2p/p2p/host/routed"
 )
 
 var _ interfaces.Host = &hostImpl{}
@@ -47,14 +42,12 @@ const (
 )
 
 type hostImpl struct {
-	p2pHost libp2pHost.Host
-	dht     *libp2pDht.IpfsDHT
-
-	ds ipfsDatastore.Batching
-
 	settings *options.Settings
+	dht      *libp2pDht.IpfsDHT
 
-	blockstore blockstore.Blockstore
+	node *ipfsCore.IpfsNode
+	api  ipfsCoreApiIface.CoreAPI
+	repo ipfsRepo.Repo
 
 	provideWorker executor.Executor
 }
@@ -71,114 +64,131 @@ func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore b
 	}
 
 	newHost := &hostImpl{
-		settings: settings,
-
-		ds:         ds,
-		blockstore: blockstore,
-
+		settings:      settings,
 		provideWorker: provideWorker,
 	}
 
-	sourceMultiAddrIP4, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", settings.Port))
+	ipfsRoot := path.Join(settings.Root, "ipfs")
+
+	// dhtCreator := func(ctx context.Context, h libp2pHost.Host, ds ipfsDatastore.Batching, validator libp2pRecord.Validator) (libp2pRouting.Routing, error) {
+	// 	// Configure peer discovery and key validator
+	// 	dhtValidator := libp2pDhtOptions.NamespacedValidator(
+	// 		"crabfs",
+	// 		DHTNamespaceValidatorNew(settings.Context, newHost.GetSwarmPublicKey),
+	// 	)
+	// 	dhtPKValidator := libp2pDhtOptions.NamespacedValidator(
+	// 		"crabfs_pk",
+	// 		DHTNamespacePKValidatorNew(),
+	// 	)
+
+	// 	dht, err := libp2pDht.New(settings.Context, h, libp2pDhtOptions.Validator(validator), dhtValidator, dhtPKValidator, libp2pDhtOptions.Datastore(ds))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	if err = dht.Bootstrap(settings.Context); err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	newHost.dht = dht
+	// 	return dht, nil
+	// }
+
+	plugins, err := ipfsPluginLoader.NewPluginLoader(path.Join(ipfsRoot, "plugins"))
 	if err != nil {
 		return nil, err
 	}
-
-	sourceMultiAddrIP6, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/::/tcp/%d", settings.Port))
-	if err != nil {
+	if err := plugins.Initialize(); err != nil {
+		return nil, err
+	}
+	if err := plugins.Inject(); err != nil {
 		return nil, err
 	}
 
-	opts := []libp2p.Option{
-		libp2p.ListenAddrs(sourceMultiAddrIP4, sourceMultiAddrIP6),
-	}
-
-	if settings.RelayOnly {
-		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptHop))
-	} else {
-		opts = append(opts, libp2p.EnableRelay(libp2pCircuit.OptDiscovery), libp2p.EnableAutoRelay())
-	}
-
-	id, ok := settings.Identity.(*identity.Libp2pIdentity)
-	if !ok {
-		return nil, fmt.Errorf("Invalid identity")
-	}
-
-	opts = append(opts, libp2p.Identity(id.GetLibp2pPrivateKey()))
-
-	dhtCreator := func(h host.Host) (routing.PeerRouting, error) {
-		// Configure peer discovery and key validator
-		dhtValidator := libp2pDhtOptions.NamespacedValidator(
-			"crabfs",
-			DHTNamespaceValidatorNew(settings.Context, newHost.GetSwarmPublicKey),
-		)
-		dhtPKValidator := libp2pDhtOptions.NamespacedValidator(
-			"crabfs_pk",
-			DHTNamespacePKValidatorNew(),
-		)
-
-		dht, err := libp2pDht.New(settings.Context, h, dhtValidator, dhtPKValidator, libp2pDhtOptions.Datastore(ds))
+	if !ipfsFSRepo.IsInitialized(ipfsRoot) {
+		config, err := ipfsConfig.Init(os.Stdout, 2048)
 		if err != nil {
 			return nil, err
 		}
 
-		if err = dht.Bootstrap(settings.Context); err != nil {
+		config.Addresses.Swarm = []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", settings.Port),
+			fmt.Sprintf("/ip6/::/tcp/%d", settings.Port),
+		}
+		config.Swarm.DisableNatPortMap = true
+		// config.Swarm.ConnMgr.Type = "basic"
+		// config.Swarm.ConnMgr.HighWater = 10
+		// config.Swarm.ConnMgr.LowWater = 1
+
+		bpaddrs, err := ipfsConfig.ParseBootstrapPeers(settings.BootstrapPeers)
+		if err != nil {
 			return nil, err
 		}
+		config.SetBootstrapPeers(bpaddrs)
 
-		newHost.dht = dht
-		return dht, nil
+		config.Discovery.MDNS.Enabled = false
+
+		if err := ipfsFSRepo.Init(ipfsRoot, config); err != nil {
+			return nil, err
+		}
 	}
 
-	opts = append(opts, libp2p.Routing(dhtCreator))
-
-	p2pHost, err := libp2p.New(
-		settings.Context,
-		opts...,
-	)
+	repo, err := ipfsFSRepo.Open(ipfsRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	newHost.p2pHost = libp2pRoutedHost.Wrap(p2pHost, newHost.dht)
-	// newHost.p2pHost = p2pHost
-
-	newHost.p2pHost.SetStreamHandler(ProtocolV1, newHost.handleStreamV1)
-
-	for _, addr := range settings.BootstrapPeers {
-		newHost.connectToPeer(addr)
+	cfg := &ipfsCore.BuildCfg{
+		Repo:   repo,
+		Online: true,
+		// Permanent: true,
+		// Routing: dhtCreator,
 	}
+
+	node, err := ipfsCore.NewNode(settings.Context, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	api, err := ipfsCoreApi.NewCoreAPI(node)
+	if err != nil {
+		return nil, err
+	}
+
+	newHost.node = node
+	newHost.api = api
+	newHost.repo = repo
 
 	return newHost, nil
 }
 
 func (host *hostImpl) Close() error {
-	if err := host.dht.Close(); err != nil {
+	if err := host.node.Close(); err != nil {
 		return err
 	}
 
-	if err := host.p2pHost.Network().Close(); err != nil {
+	if err := host.repo.Close(); err != nil {
 		return err
 	}
 
-	return host.p2pHost.Close()
+	return nil
 }
 
 func (host *hostImpl) Announce() error {
-	routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
+	// routingDiscovery := discovery.NewRoutingDiscovery(host.dht)
 
-	// Force first advertise
-	routingDiscovery.Advertise(host.settings.Context, "crabfs")
-	// for {
-	// 	_, err := routingDiscovery.Advertise(host.settings.Context, "crabfs")
-	// 	if err == nil {
-	// 		break
-	// 	}
-	// 	<-time.After(1 * time.Second)
-	// 	// log.Printf("Err here: %v", err)
-	// }
+	// // Force first advertise
+	// routingDiscovery.Advertise(host.settings.Context, "crabfs")
+	// // for {
+	// // 	_, err := routingDiscovery.Advertise(host.settings.Context, "crabfs")
+	// // 	if err == nil {
+	// // 		break
+	// // 	}
+	// // 	<-time.After(1 * time.Second)
+	// // 	// log.Printf("Err here: %v", err)
+	// // }
 
-	discovery.Advertise(host.settings.Context, routingDiscovery, "crabfs")
+	// discovery.Advertise(host.settings.Context, routingDiscovery, "crabfs")
 
 	// peers, err := discovery.FindPeers(host.settings.Context, routingDiscovery, "crabfs")
 	// if err != nil {
@@ -217,103 +227,92 @@ func (host *hostImpl) PutPublicKey(publicKey crabfsCrypto.PubKey) error {
 func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
 	defer stream.Close()
 
-	data, err := ioutil.ReadAll(stream)
-	if err != nil {
-		return
-	}
+	// data, err := ioutil.ReadAll(stream)
+	// if err != nil {
+	// 	return
+	// }
 
-	var request pb.BlockStreamRequest
-	if err := proto.Unmarshal(data, &request); err != nil {
-		return
-	}
+	// var request pb.BlockStreamRequest
+	// if err := proto.Unmarshal(data, &request); err != nil {
+	// 	return
+	// }
 
-	cid, err := cid.Cast(request.Cid)
-	if err != nil {
-		return
-	}
+	// cid, err := cid.Cast(request.Cid)
+	// if err != nil {
+	// 	return
+	// }
 
-	block, err := host.blockstore.Get(cid)
-	if err != nil {
-		return
-	}
+	// block, err := host.blockstore.Get(cid)
+	// if err != nil {
+	// 	return
+	// }
 
-	_, err = stream.Write(block.RawData())
-	if err != nil {
-		return
-	}
+	// _, err = stream.Write(block.RawData())
+	// if err != nil {
+	// 	return
+	// }
 }
 
 func (host *hostImpl) Reprovide(ctx context.Context, withBlocks bool) error {
-	query := ipfsDatastoreQuery.Query{
-		Prefix: "/crabfs/",
-	}
+	// query := ipfsDatastoreQuery.Query{
+	// 	Prefix: "/crabfs/",
+	// }
 
-	results, err := host.ds.Query(query)
-	if err != nil {
-		return err
-	}
+	// results, err := host.ds.Query(query)
+	// if err != nil {
+	// 	return err
+	// }
 
-	for result := range results.Next() {
-		var record pb.DHTNameRecord
-		if err := proto.Unmarshal(result.Value, &record); err != nil {
-			// Invalid key, do not reprovide it
-			continue
-		}
-		object, err := host.xObjectFromRecord(&record)
-		if err != nil {
-			// Invalid key, do not reprovide it
-			continue
-		}
+	// for result := range results.Next() {
+	// 	var record pb.DHTNameRecord
+	// 	if err := proto.Unmarshal(result.Value, &record); err != nil {
+	// 		// Invalid key, do not reprovide it
+	// 		continue
+	// 	}
+	// 	object, err := host.xObjectFromRecord(&record)
+	// 	if err != nil {
+	// 		// Invalid key, do not reprovide it
+	// 		continue
+	// 	}
 
-		if host.isObjectLocked(object) {
-			// Do not reprovide locked objects
-			continue
-		}
+	// 	if host.isObjectLocked(object) {
+	// 		// Do not reprovide locked objects
+	// 		continue
+	// 	}
 
-		host.dhtPutValue(ctx, result.Key, result.Value)
-	}
+	// 	host.dhtPutValue(ctx, result.Key, result.Value)
+	// }
 
-	if withBlocks {
-		ch, err := host.blockstore.AllKeysChan(ctx)
-		if err != nil {
-			return err
-		}
+	// if withBlocks {
+	// 	ch, err := host.blockstore.AllKeysChan(ctx)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		for cid := range ch {
-			_cid := cid
-			host.provideWorker.PostJob(func(ctx context.Context) error {
-				return host.Provide(ctx, _cid)
-			})
-		}
-	}
+	// 	for cid := range ch {
+	// 		_cid := cid
+	// 		host.provideWorker.PostJob(func(ctx context.Context) error {
+	// 			return host.Provide(ctx, _cid)
+	// 		})
+	// 	}
+	// }
 
 	return nil
 }
 
-func (host *hostImpl) connectToPeer(addr string) error {
-	ma := multiaddr.StringCast(addr)
-
-	peerinfo, err := libp2pPeerstore.InfoFromP2pAddr(ma)
-	if err != nil {
-		return err
-	}
-
-	return host.p2pHost.Connect(host.settings.Context, *peerinfo)
-}
-
 func (host *hostImpl) GetID() string {
-	return host.p2pHost.ID().Pretty()
+	return host.node.PeerHost.ID().Pretty()
 }
 
 func (host *hostImpl) GetAddrs() []string {
 	addrs := []string{}
 
-	hostAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", host.p2pHost.ID().Pretty()))
+	hostAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s", host.node.PeerHost.ID().Pretty()))
 	if err != nil {
 		return addrs
 	}
 
-	for _, addr := range host.p2pHost.Addrs() {
+	for _, addr := range host.node.PeerHost.Addrs() {
 		addrs = append(addrs, addr.Encapsulate(hostAddr).String())
 	}
 
@@ -335,45 +334,46 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (crabf
 }
 
 func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto.PrivKey, object *pb.CrabObject, bucket string, filename string) error {
-	record := &pb.DHTNameRecord{
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-	}
+	return nil
+	// record := &pb.DHTNameRecord{
+	// 	Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+	// }
 
-	data, err := proto.Marshal(object)
-	if err != nil {
-		return err
-	}
+	// data, err := proto.Marshal(object)
+	// if err != nil {
+	// 	return err
+	// }
 
-	record.Data = data
+	// record.Data = data
 
-	signature, err := privateKey.Sign(data)
-	if err != nil {
-		return err
-	}
+	// signature, err := privateKey.Sign(data)
+	// if err != nil {
+	// 	return err
+	// }
 
-	record.Signature = signature
+	// record.Signature = signature
 
-	value, err := proto.Marshal(record)
-	if err != nil {
-		return err
-	}
+	// value, err := proto.Marshal(record)
+	// if err != nil {
+	// 	return err
+	// }
 
-	for _, blockMeta := range object.Blocks {
-		cid, _ := cid.Cast(blockMeta.Cid)
-		if err := host.provideWorker.PostJob(func(ctx context.Context) error {
-			return host.Provide(ctx, cid)
-		}); err != nil {
-			return err
-		}
-	}
+	// for _, blockMeta := range object.Blocks {
+	// 	cid, _ := cid.Cast(blockMeta.Cid)
+	// 	if err := host.provideWorker.PostJob(func(ctx context.Context) error {
+	// 		return host.Provide(ctx, cid)
+	// 	}); err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	bucketFilename := path.Join(bucket, filename)
+	// bucketFilename := path.Join(bucket, filename)
 
-	publicKeyHash := privateKey.GetPublic().HashString()
+	// publicKeyHash := privateKey.GetPublic().HashString()
 
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
+	// key := KeyFromFilename(publicKeyHash, bucketFilename)
 
-	return host.dhtPutValue(ctx, key, value)
+	// return host.dhtPutValue(ctx, key, value)
 }
 
 func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
@@ -431,21 +431,21 @@ func (host *hostImpl) PublishWithCacheTTL(ctx context.Context, privateKey crabfs
 }
 
 func (host *hostImpl) Provide(ctx context.Context, cid cid.Cid) error {
-	if host.dht.RoutingTable().Size() > 0 {
-		return host.dht.Provide(ctx, cid, true)
-	}
+	// if host.dht.RoutingTable().Size() > 0 {
+	// 	return host.dht.Provide(ctx, cid, true)
+	// }
 
 	return nil
 }
 
 func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte) error {
-	if err := host.ds.Put(ipfsDatastore.NewKey(key), value); err != nil {
-		return err
-	}
+	// if err := host.ds.Put(ipfsDatastore.NewKey(key), value); err != nil {
+	// 	return err
+	// }
 
-	if host.dht.RoutingTable().Size() > 0 {
-		return host.dht.PutValue(ctx, key, value)
-	}
+	// if host.dht.RoutingTable().Size() > 0 {
+	// 	return host.dht.PutValue(ctx, key, value)
+	// }
 
 	return nil
 }
@@ -460,79 +460,81 @@ func (host *hostImpl) xObjectFromRecord(record *pb.DHTNameRecord) (*pb.CrabObjec
 }
 
 func (host *hostImpl) getCache(ctx context.Context, key string) *time.Time {
-	cacheData, err := host.ds.Get(ipfsDatastore.NewKey(key))
-	if err != nil {
-		return nil
-	}
+	// cacheData, err := host.ds.Get(ipfsDatastore.NewKey(key))
+	// if err != nil {
+	// 	return nil
+	// }
 
-	cache, err := time.Parse(time.RFC3339Nano, string(cacheData))
-	if err != nil {
-		return nil
-	}
+	// cache, err := time.Parse(time.RFC3339Nano, string(cacheData))
+	// if err != nil {
+	// 	return nil
+	// }
 
-	return &cache
+	// return &cache
+	return nil
 }
 
 func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.DHTNameRecord, *pb.CrabObject, error) {
-	bucketFilename := path.Join(bucket, filename)
-	publicKeyHash := publicKey.HashString()
+	return nil, nil, nil
+	// bucketFilename := path.Join(bucket, filename)
+	// publicKeyHash := publicKey.HashString()
 
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
-	cacheKey := CacheKeyFromFilename(publicKeyHash, bucketFilename)
+	// key := KeyFromFilename(publicKeyHash, bucketFilename)
+	// cacheKey := CacheKeyFromFilename(publicKeyHash, bucketFilename)
 
-	cache := host.getCache(ctx, cacheKey)
+	// cache := host.getCache(ctx, cacheKey)
 
-	var object *pb.CrabObject
-	var record pb.DHTNameRecord
+	// var object *pb.CrabObject
+	// var record pb.DHTNameRecord
 
-	dataLocal, err := host.ds.Get(ipfsDatastore.NewKey(key))
-	if err == nil {
-		if err := proto.Unmarshal(dataLocal, &record); err == nil {
-			object, err = host.xObjectFromRecord(&record)
-			if err == nil {
-				// Early return. The object is cached and the ttl is still valid
-				if cache != nil && (time.Duration(object.CacheTTL)*time.Second) > time.Now().Sub(*cache) {
-					return &record, object, nil
-				}
-			}
-		}
+	// dataLocal, err := host.ds.Get(ipfsDatastore.NewKey(key))
+	// if err == nil {
+	// 	if err := proto.Unmarshal(dataLocal, &record); err == nil {
+	// 		object, err = host.xObjectFromRecord(&record)
+	// 		if err == nil {
+	// 			// Early return. The object is cached and the ttl is still valid
+	// 			if cache != nil && (time.Duration(object.CacheTTL)*time.Second) > time.Now().Sub(*cache) {
+	// 				return &record, object, nil
+	// 			}
+	// 		}
+	// 	}
 
-	}
+	// }
 
-	// Not found in local query and/or cache is outdated. Query remote
-	data, err := host.dht.GetValue(ctx, key)
+	// // Not found in local query and/or cache is outdated. Query remote
+	// data, err := host.dht.GetValue(ctx, key)
 
-	if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
-		if object == nil {
-			return nil, nil, ErrObjectNotFound
-		}
+	// if err != nil && (err == libp2pRouting.ErrNotFound || strings.Contains(err.Error(), "failed to find any peer in table")) {
+	// 	if object == nil {
+	// 		return nil, nil, ErrObjectNotFound
+	// 	}
 
-		return &record, object, nil
-	} else if err != nil {
-		return nil, nil, err
-	}
+	// 	return &record, object, nil
+	// } else if err != nil {
+	// 	return nil, nil, err
+	// }
 
-	if err := proto.Unmarshal(data, &record); err != nil {
-		return nil, nil, err
-	}
+	// if err := proto.Unmarshal(data, &record); err != nil {
+	// 	return nil, nil, err
+	// }
 
-	object, err = host.xObjectFromRecord(&record)
-	if err != nil {
-		return nil, nil, err
-	}
+	// object, err = host.xObjectFromRecord(&record)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
-	// Only republish if there's no lock
-	if !host.isObjectLocked(object) {
-		if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
-			// Log
-		}
-	}
+	// // Only republish if there's no lock
+	// if !host.isObjectLocked(object) {
+	// 	if err := host.ds.Put(ipfsDatastore.NewKey(key), data); err != nil {
+	// 		// Log
+	// 	}
+	// }
 
-	if err := host.ds.Put(ipfsDatastore.NewKey(cacheKey), []byte(time.Now().UTC().Format(time.RFC3339Nano))); err != nil {
-		return nil, nil, err
-	}
+	// if err := host.ds.Put(ipfsDatastore.NewKey(cacheKey), []byte(time.Now().UTC().Format(time.RFC3339Nano))); err != nil {
+	// 	return nil, nil, err
+	// }
 
-	return &record, object, nil
+	// return &record, object, nil
 }
 
 func (host *hostImpl) GetContent(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabObject, error) {
@@ -620,43 +622,44 @@ func (host *hostImpl) Unlock(ctx context.Context, privateKey crabfsCrypto.PrivKe
 }
 
 func (host *hostImpl) FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo {
-	cid, _ := cid.Cast(blockMeta.Cid)
+	// cid, _ := cid.Cast(blockMeta.Cid)
 
-	ch := host.dht.FindProvidersAsync(ctx, cid, libp2pDht.KValue)
+	// ch, err := host.api.Dht().FindProviders(ctx, ipfsPath.New(cid.), libp2pDht.KValue)
 
-	return ch
+	return nil
 }
 
 func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.BlockMetadata, peer *libp2pPeerstore.PeerInfo) (io.Reader, error) {
-	circuitAddr, err := multiaddr.NewMultiaddr("/p2p-circuit/p2p/" + peer.ID.Pretty())
-	if err != nil {
-		return nil, err
-	}
+	return nil, fmt.Errorf("TODO")
+	// circuitAddr, err := multiaddr.NewMultiaddr("/p2p-circuit/p2p/" + peer.ID.Pretty())
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// Add the relay addr circuit to this peer
-	host.p2pHost.Peerstore().AddAddr(peer.ID, circuitAddr, libp2pPeerstore.TempAddrTTL)
+	// // Add the relay addr circuit to this peer
+	// host.p2pHost.Peerstore().AddAddr(peer.ID, circuitAddr, libp2pPeerstore.TempAddrTTL)
 
-	host.p2pHost.Network().(*libp2pSwarm.Swarm).Backoff().Clear(peer.ID)
-	stream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
-	if err != nil {
-		return nil, err
-	}
+	// host.p2pHost.Network().(*libp2pSwarm.Swarm).Backoff().Clear(peer.ID)
+	// stream, err := host.p2pHost.NewStream(ctx, peer.ID, ProtocolV1)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	request := pb.BlockStreamRequest{
-		Cid: blockMeta.Cid,
-	}
+	// request := pb.BlockStreamRequest{
+	// 	Cid: blockMeta.Cid,
+	// }
 
-	data, err := proto.Marshal(&request)
-	if err != nil {
-		return nil, err
-	}
+	// data, err := proto.Marshal(&request)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	_, err = stream.Write(data)
-	if err != nil {
-		return nil, err
-	}
+	// _, err = stream.Write(data)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return stream, stream.Close()
+	// return stream, stream.Close()
 }
 
 func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {
