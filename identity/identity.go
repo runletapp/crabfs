@@ -9,7 +9,7 @@ import (
 
 	pb "github.com/runletapp/crabfs/protos"
 
-	libp2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
+	libp2pCrypto "github.com/libp2p/go-libp2p-crypto"
 )
 
 var _ Identity = &Libp2pIdentity{}

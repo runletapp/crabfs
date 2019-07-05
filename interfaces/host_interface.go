@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	pb "github.com/runletapp/crabfs/protos"
@@ -70,4 +71,6 @@ type Host interface {
 
 	// Provide publishes a block in the network
 	Provide(ctx context.Context, cid cid.Cid) error
+
+	PutBlock(ctx context.Context, block blocks.Block) (cid.Cid, error)
 }

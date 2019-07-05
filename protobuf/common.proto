@@ -6,7 +6,7 @@ message LockToken {
     string token = 1;
 }
 
-message DHTNameRecord {
+message CrabEntry {
     string timestamp = 1;
     bytes data = 2;
     bytes signature = 3;

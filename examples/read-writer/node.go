@@ -18,12 +18,10 @@ import (
 	"github.com/runletapp/crabfs"
 )
 
-func nodeStart(ctx context.Context, bootstrapAddr string, mountLocation string) interfaces.Core {
+func nodeStart(ctx context.Context, mountLocation string) interfaces.Core {
 	fs, err := crabfs.New(
 		options.Root(mountLocation),
 		options.Context(ctx),
-		options.BootstrapPeers([]string{bootstrapAddr}),
-		options.GCInterval(5*time.Second),
 	)
 	if err != nil {
 		panic(err)
@@ -101,7 +99,6 @@ func writer(ctx context.Context, fs interfaces.Bucket, filename string) {
 func main() {
 	outputFile := flag.String("o", "", "Output file")
 	privateKeyFile := flag.String("p", "", "Private key file")
-	bootstrapPeer := flag.String("d", "", "bootstrap peer to dial")
 	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	readFile := flag.String("q", "", "read file")
 	writeFile := flag.String("w", "", "write file")
@@ -144,7 +141,7 @@ func main() {
 		}
 	}
 
-	fs := nodeStart(ctx, *bootstrapPeer, *mountLocation)
+	fs := nodeStart(ctx, *mountLocation)
 	bucket, err := fs.WithBucket(psk, "exampleBkt")
 	if err != nil {
 		panic(err)

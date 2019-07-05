@@ -1,6 +1,7 @@
 package crabfs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,11 +18,10 @@ import (
 	"github.com/GustavoKatel/asyncutils/executor"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multiaddr"
 
-	ipfsDatastore "github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	ipfsConfig "github.com/ipfs/go-ipfs-config"
 	ipfsCore "github.com/ipfs/go-ipfs/core"
 	ipfsCoreApi "github.com/ipfs/go-ipfs/core/coreapi"
@@ -29,8 +29,8 @@ import (
 	ipfsRepo "github.com/ipfs/go-ipfs/repo"
 	ipfsFSRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	ipfsCoreApiIface "github.com/ipfs/interface-go-ipfs-core"
-	libp2pNet "github.com/libp2p/go-libp2p-core/network"
 	libp2pDht "github.com/libp2p/go-libp2p-kad-dht"
+	libp2pNet "github.com/libp2p/go-libp2p-net"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
@@ -53,7 +53,7 @@ type hostImpl struct {
 }
 
 // HostNew creates a new host
-func HostNew(settings *options.Settings, ds ipfsDatastore.Batching, blockstore blockstore.Blockstore) (interfaces.Host, error) {
+func HostNew(settings *options.Settings) (interfaces.Host, error) {
 	provideWorker, err := executor.NewDefaultExecutorContext(settings.Context, 4)
 	if err != nil {
 		return nil, err
@@ -213,6 +213,15 @@ func (host *hostImpl) Announce() error {
 	// }
 
 	return nil
+}
+
+func (host *hostImpl) PutBlock(ctx context.Context, block blocks.Block) (cid.Cid, error) {
+	stat, err := host.api.Block().Put(ctx, bytes.NewReader(block.RawData()))
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	return stat.Path().Cid(), nil
 }
 
 func (host *hostImpl) PutPublicKey(publicKey crabfsCrypto.PubKey) error {

@@ -5,7 +5,6 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"io"
-	"path"
 	"time"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
@@ -14,9 +13,6 @@ import (
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
 
-	ipfsDatastore "github.com/ipfs/go-datastore"
-	ipfsDatastoreSync "github.com/ipfs/go-datastore/sync"
-	ipfsDsLeveldb "github.com/ipfs/go-ds-leveldb"
 	ipfsBlockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
@@ -27,12 +23,7 @@ type crabFS struct {
 
 	host interfaces.Host
 
-	datastore  *ipfsDatastoreSync.MutexDatastore
-	blockstore ipfsBlockstore.Blockstore
-
 	fetcherFactory interfaces.FetcherFactory
-
-	gc interfaces.GarbageCollector
 }
 
 // New create a new CrabFS
@@ -60,39 +51,10 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		}
 	}
 
-	var rawDatastore ipfsDatastore.Datastore
-	if settings.RelayOnly {
-		rawDatastore = ipfsDatastore.NewMapDatastore()
-	} else if settings.Root == "" {
-		// Use an in-memory datastore
-		rawDatastore = ipfsDatastore.NewMapDatastore()
-	} else {
-		var err error
-		rawDatastore, err = ipfsDsLeveldb.NewDatastore(path.Join(settings.Root, "db"), nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	datastore := ipfsDatastoreSync.MutexWrap(rawDatastore)
-
-	blockstore := ipfsBlockstore.NewBlockstore(datastore)
-
-	gc, err := GarbageCollectorNew(settings.Context, settings.GCInterval, datastore, blockstore)
-	if err != nil {
-		return nil, err
-	}
-
 	hostFactory := HostNew
-	host, err := hostFactory(&settings, datastore, blockstore)
+	host, err := hostFactory(&settings)
 	if err != nil {
 		return nil, err
-	}
-
-	if !settings.RelayOnly {
-		if err := host.Announce(); err != nil {
-			return nil, err
-		}
 	}
 
 	fs := &crabFS{
@@ -100,44 +62,10 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 
 		host: host,
 
-		datastore: datastore,
-
-		blockstore: blockstore,
-
 		fetcherFactory: BasicFetcherNew,
-
-		gc: gc,
-	}
-
-	if !settings.RelayOnly {
-		go fs.background()
-
-		if err := gc.Start(); err != nil {
-			return nil, err
-		}
 	}
 
 	return fs, nil
-}
-
-func (fs *crabFS) background() {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	fs.host.Reprovide(fs.settings.Context, true)
-	locker.Unlock()
-
-	ticker := time.NewTicker(fs.settings.ReprovideInterval)
-	for {
-		select {
-		case <-ticker.C:
-			locker := fs.gc.Locker()
-			locker.Lock()
-			// fs.host.Reprovide(fs.settings.Context, false)
-			locker.Unlock()
-		case <-fs.settings.Context.Done():
-			return
-		}
-	}
 }
 
 func (fs *crabFS) Close() error {
@@ -145,31 +73,19 @@ func (fs *crabFS) Close() error {
 		return err
 	}
 
-	return fs.datastore.Close()
+	return nil
 }
 
 func (fs *crabFS) Get(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (interfaces.Fetcher, error) {
-	locker := fs.gc.Locker()
-	locker.Lock()
-
 	object, err := fs.host.GetContent(ctx, privateKey.GetPublic(), bucket, filename)
 	if err != nil {
-		locker.Unlock()
 		return nil, err
 	}
 
 	fetcher, err := fs.fetcherFactory(ctx, fs, object, privateKey)
 	if err != nil {
-		locker.Unlock()
 		return nil, err
 	}
-
-	go func() {
-		// We hold a gc locker until the fetcher is done, this way we avoid
-		// the gc messing around the fetch operation
-		<-fetcher.Context().Done()
-		locker.Unlock()
-	}()
 
 	return fetcher, nil
 }
@@ -192,7 +108,7 @@ func (fs *crabFS) generateKey(size int) ([]byte, error) {
 	return b, err
 }
 
-func (fs *crabFS) prepareFile(privateKey crabfsCrypto.PrivKey, file io.Reader) (interfaces.BlockMap, []byte, int64, error) {
+func (fs *crabFS) prepareFile(ctx context.Context, privateKey crabfsCrypto.PrivKey, file io.Reader) (interfaces.BlockMap, []byte, int64, error) {
 	key, err := fs.generateKey(32) // aes-256
 	if err != nil {
 		return nil, nil, 0, err
@@ -203,7 +119,7 @@ func (fs *crabFS) prepareFile(privateKey crabfsCrypto.PrivKey, file io.Reader) (
 		return nil, nil, 0, err
 	}
 
-	slicer, err := BlockSlicerNew(file, fs.settings.BlockSize, cipher)
+	slicer, err := IPFSBlockSlicerNew(file, cipher)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -221,9 +137,11 @@ func (fs *crabFS) prepareFile(privateKey crabfsCrypto.PrivKey, file io.Reader) (
 			break
 		}
 
-		if err := fs.blockstore.Put(block); err != nil {
+		cid, err := fs.host.PutBlock(ctx, block)
+		if err != nil {
 			return nil, nil, 0, err
 		}
+		blockMeta.Cid = cid.Bytes()
 
 		blockMap[blockMeta.Start] = blockMeta
 		totalSize += n
@@ -241,11 +159,7 @@ func (fs *crabFS) prepareFile(privateKey crabfsCrypto.PrivKey, file io.Reader) (
 }
 
 func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) error {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	defer locker.Unlock()
-
-	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(ctx, privateKey, file)
 	if err != nil {
 		return err
 	}
@@ -254,11 +168,7 @@ func (fs *crabFS) Put(ctx context.Context, privateKey crabfsCrypto.PrivKey, buck
 }
 
 func (fs *crabFS) PutWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time, ttl uint64) error {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	defer locker.Unlock()
-
-	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(ctx, privateKey, file)
 	if err != nil {
 		return err
 	}
@@ -267,11 +177,7 @@ func (fs *crabFS) PutWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.P
 }
 
 func (fs *crabFS) PutAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, file io.Reader, mtime time.Time) (*pb.LockToken, error) {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	defer locker.Unlock()
-
-	blockMap, cipherKey, totalSize, err := fs.prepareFile(privateKey, file)
+	blockMap, cipherKey, totalSize, err := fs.prepareFile(ctx, privateKey, file)
 	if err != nil {
 		return nil, err
 	}
@@ -280,9 +186,6 @@ func (fs *crabFS) PutAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKe
 }
 
 func (fs *crabFS) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {
-	if err := fs.gc.Schedule(); err != nil {
-		return err
-	}
 	return fs.host.Remove(ctx, privateKey, bucket, filename)
 }
 
@@ -295,7 +198,7 @@ func (fs *crabFS) GetAddrs() []string {
 }
 
 func (fs *crabFS) Blockstore() ipfsBlockstore.Blockstore {
-	return fs.blockstore
+	return nil
 }
 
 func (fs *crabFS) Host() interfaces.Host {
@@ -303,7 +206,7 @@ func (fs *crabFS) Host() interfaces.Host {
 }
 
 func (fs *crabFS) GarbageCollector() interfaces.GarbageCollector {
-	return fs.gc
+	return nil
 }
 
 func (fs *crabFS) WithBucket(privateKey crabfsCrypto.PrivKey, bucket string) (interfaces.Bucket, error) {
@@ -323,10 +226,6 @@ func (fs *crabFS) WithBucketRoot(privateKey crabfsCrypto.PrivKey, bucket string,
 }
 
 func (fs *crabFS) PublishPublicKey(publicKey crabfsCrypto.PubKey) error {
-	locker := fs.gc.Locker()
-	locker.Lock()
-	defer locker.Unlock()
-
 	return fs.host.PutPublicKey(publicKey)
 }
 
