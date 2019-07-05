@@ -2,8 +2,8 @@ package options
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"time"
 
 	"github.com/runletapp/crabfs/identity"
 
@@ -21,9 +21,7 @@ type Settings struct {
 
 	Root string
 
-	ReprovideInterval time.Duration
-
-	GCInterval time.Duration
+	BucketAddress map[string]string
 
 	Identity identity.Identity
 }
@@ -46,9 +44,7 @@ func (s *Settings) SetDefaults() error {
 
 	s.Root = ""
 
-	s.ReprovideInterval = 1 * time.Minute
-
-	s.GCInterval = 1 * time.Hour
+	s.BucketAddress = map[string]string{}
 
 	// Defaults to create a new one
 	s.Identity = nil
@@ -112,22 +108,6 @@ func Root(root string) Option {
 	}
 }
 
-// ReprovideInterval interval which blocks are republished to the network
-func ReprovideInterval(interval time.Duration) Option {
-	return func(s *Settings) error {
-		s.ReprovideInterval = interval
-		return nil
-	}
-}
-
-// GCInterval interval which the garbage collector should run
-func GCInterval(interval time.Duration) Option {
-	return func(s *Settings) error {
-		s.GCInterval = interval
-		return nil
-	}
-}
-
 // Identity set the node identity
 func Identity(id identity.Identity) Option {
 	return func(s *Settings) error {
@@ -145,6 +125,26 @@ func IdentityFromReader(r io.Reader) Option {
 		}
 
 		s.Identity = id
+		return nil
+	}
+}
+
+// AddBucketAddress adds a bucket address to the current AddressBook
+func AddBucketAddress(name string, address string) Option {
+	return func(s *Settings) error {
+		s.BucketAddress[name] = address
+		return nil
+	}
+}
+
+// AddressBook override the address book
+func AddressBook(book map[string]string) Option {
+	return func(s *Settings) error {
+		if book == nil {
+			return fmt.Errorf("Invalid address book: %v", book)
+		}
+
+		s.BucketAddress = book
 		return nil
 	}
 }

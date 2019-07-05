@@ -51,9 +51,6 @@ type Host interface {
 	// IsLocked check if a file is locked
 	IsLocked(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (bool, error)
 
-	// FindProviders find the closest providers of cid
-	FindProviders(ctx context.Context, blockMeta *pb.BlockMetadata) <-chan libp2pPeerstore.PeerInfo
-
 	// CreateBlockStream downloads a block 'cid' from peer
 	CreateBlockStream(ctx context.Context, blockMeta *pb.BlockMetadata, peer *libp2pPeerstore.PeerInfo) (io.Reader, error)
 

@@ -23,6 +23,8 @@ type crabFS struct {
 
 	host interfaces.Host
 
+	addressBook interfaces.AddressBook
+
 	fetcherFactory interfaces.FetcherFactory
 }
 
@@ -51,14 +53,27 @@ func New(opts ...options.Option) (interfaces.Core, error) {
 		}
 	}
 
+	addressBook, err := AddressBookNew()
+	if err != nil {
+		return nil, err
+	}
+
+	for bucket, addr := range settings.BucketAddress {
+		if err := addressBook.Add(bucket, addr); err != nil {
+			return nil, err
+		}
+	}
+
 	hostFactory := HostNew
-	host, err := hostFactory(&settings)
+	host, err := hostFactory(&settings, addressBook)
 	if err != nil {
 		return nil, err
 	}
 
 	fs := &crabFS{
 		settings: &settings,
+
+		addressBook: addressBook,
 
 		host: host,
 
