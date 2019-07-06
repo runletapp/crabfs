@@ -33,6 +33,8 @@ type Host interface {
 
 	PutBlock(ctx context.Context, block blocks.Block) (cid.Cid, error)
 
+	GetBlock(ctx context.Context, cid cid.Cid) (io.Reader, error)
+
 	CreateBucket(ctx context.Context, name string, privateKey crabfsCrypto.PrivKey) (string, *pb.CrabBucket, error)
 
 	VerifyBucketSignature(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucketAddr string) error

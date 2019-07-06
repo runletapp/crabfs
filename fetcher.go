@@ -6,9 +6,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"io"
+	"io/ioutil"
 	"os"
 	"sort"
 	"sync"
+
+	"github.com/ipfs/go-cid"
 
 	blocks "github.com/ipfs/go-block-format"
 
@@ -105,9 +108,11 @@ func (fetcher *BasicFetcher) getNextIndex(offset int64) int64 {
 	return currentIndex
 }
 
-func (fetcher *BasicFetcher) getDataFromBlock(meta *pb.BlockMetadata, block blocks.Block) ([]byte, error) {
-	data := make([]byte, len(block.RawData()))
-	copy(data, block.RawData())
+func (fetcher *BasicFetcher) getDataFromBlock(meta *pb.BlockMetadata, reader io.Reader) ([]byte, error) {
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
 	fetcher.cipher.Decrypt(data, data)
 
 	return data[:int(meta.PaddingStart)], nil
@@ -149,32 +154,18 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		localOffset = fetcher.offset - blockMeta.Start
 	}
 
-	// cid, _ := cid.Cast(blockMeta.Cid)
-	// block, err := fetcher.fs.Blockstore().Get(cid)
-	// if err == nil {
-	// 	plainData, err := fetcher.getDataFromBlock(blockMeta, block)
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
-	// 	fetcher.buffer.Write(plainData[localOffset:])
-
-	// 	n, err := fetcher.buffer.Read(pLimit)
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
-
-	// 	fetcher.offset += int64(n)
-
-	// 	return n, err
-	// }
-
 	// TODO: improvement: fetch-ahead blocks
-	block, err := fetcher.downloadBlock(blockMeta)
+	cid, err := cid.Cast(blockMeta.Cid)
 	if err != nil {
 		return 0, err
 	}
 
-	plainData, err := fetcher.getDataFromBlock(blockMeta, block)
+	r, err := fetcher.fs.Host().GetBlock(fetcher.ctx, cid)
+	if err != nil {
+		return 0, err
+	}
+
+	plainData, err := fetcher.getDataFromBlock(blockMeta, r)
 	if err != nil {
 		return 0, err
 	}
@@ -189,7 +180,7 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.Block, error) {
+func (fetcher *BasicFetcher) fetchBlock(blockMeta *pb.BlockMetadata) (blocks.Block, error) {
 	return nil, ErrBlockNotFound
 }
 

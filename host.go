@@ -188,6 +188,10 @@ func (host *hostImpl) Announce() error {
 	return nil
 }
 
+func (host *hostImpl) GetBlock(ctx context.Context, cid cid.Cid) (io.Reader, error) {
+	return host.api.Block().Get(ctx, ipfsPath.IpfsPath(cid))
+}
+
 func (host *hostImpl) PutBlock(ctx context.Context, block blocks.Block) (cid.Cid, error) {
 	stat, err := host.api.Block().Put(ctx, bytes.NewReader(block.RawData()))
 	if err != nil {
