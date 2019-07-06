@@ -36,4 +36,8 @@ type Host interface {
 	CreateBucket(ctx context.Context, name string, privateKey crabfsCrypto.PrivKey) (string, *pb.CrabBucket, error)
 
 	VerifyBucketSignature(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucketAddr string) error
+
+	SyncBucket(ctx context.Context, bucketAddr string) error
+
+	GetBucketBook(ctx context.Context, bucketAddr string) (EntryBook, error)
 }

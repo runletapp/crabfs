@@ -86,6 +86,8 @@ func (fs *crabFS) WithBucketFiles(ctx context.Context, privateKey crabfsCrypto.P
 		return nil, err
 	}
 
+	fs.host.SyncBucket(ctx, bucketAddr)
+
 	return BucketCoreNew(fs, privateKey, bucketAddr, ""), nil
 }
 
@@ -93,6 +95,8 @@ func (fs *crabFS) WithBucketFilesRoot(ctx context.Context, privateKey crabfsCryp
 	if err := fs.host.VerifyBucketSignature(ctx, privateKey, bucketAddr); err != nil {
 		return nil, err
 	}
+
+	fs.host.SyncBucket(ctx, bucketAddr)
 
 	return BucketCoreNew(fs, privateKey, bucketAddr, baseDir), nil
 }

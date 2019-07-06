@@ -1,6 +1,7 @@
 package crabfs
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/rand"
@@ -29,7 +30,7 @@ type bucketCoreImpl struct {
 
 // BucketCoreNew creates a new bucket core io
 func BucketCoreNew(fs interfaces.Core, privateKey crabfsCrypto.PrivKey, bucketAddress string, root string) interfaces.Bucket {
-	return &bucketCoreImpl{
+	b := &bucketCoreImpl{
 		privateKey:    privateKey,
 		bucketAddress: bucketAddress,
 
@@ -37,6 +38,8 @@ func BucketCoreNew(fs interfaces.Core, privateKey crabfsCrypto.PrivKey, bucketAd
 
 		fs: fs,
 	}
+
+	return b
 }
 
 func (b *bucketCoreImpl) generateKey(size int) ([]byte, error) {
@@ -95,9 +98,57 @@ func (b *bucketCoreImpl) prepareFile(ctx context.Context, privateKey crabfsCrypt
 	return blockMap, cipherKey, totalSize, nil
 }
 
+func (b *bucketCoreImpl) xObjectFromEntry(entry *pb.CrabEntry) (*pb.CrabObject, error) {
+	var obj pb.CrabObject
+	if err := proto.Unmarshal(entry.Data, &obj); err != nil {
+		return nil, err
+	}
+
+	return &obj, nil
+}
+
+func (b *bucketCoreImpl) convergeOverKey(ctx context.Context, key string) (*pb.CrabObject, error) {
+	book, err := b.fs.Host().GetBucketBook(ctx, b.bucketAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	var objectResult *pb.CrabObject
+
+	iter := book.Iter()
+	entry := iter.Next()
+	for entry != nil {
+		object, err := b.xObjectFromEntry(entry)
+		if err != nil {
+			return nil, err
+		}
+
+		if bytes.Compare(object.Key, []byte(key)) == 0 {
+			objectResult = object
+		}
+
+		entry = iter.Next()
+	}
+
+	if objectResult == nil {
+		return nil, fmt.Errorf("Key not found")
+	}
+
+	return objectResult, nil
+}
+
 func (b *bucketCoreImpl) Get(ctx context.Context, filename string) (interfaces.Fetcher, error) {
-	// return b.fs.Get(ctx, b.privateKey, b.bucket, path.Join(b.root, filename))
-	return nil, fmt.Errorf("TODO")
+	object, err := b.convergeOverKey(ctx, b.keyFromFilename(filename))
+	if err != nil {
+		return nil, err
+	}
+
+	fetcher, err := BasicFetcherNew(ctx, b.fs, object, b.privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return fetcher, nil
 }
 
 func (b *bucketCoreImpl) keyFromFilename(filename string) string {

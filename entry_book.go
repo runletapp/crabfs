@@ -41,6 +41,12 @@ func (book *entryBookImpl) Add(cid cid.Cid, entry *pb.CrabEntry) error {
 	book.entriesMutex.Lock()
 	defer book.entriesMutex.Unlock()
 
+	_, prs := book.hashMap[cid.String()]
+	if prs {
+		// Already has it
+		return nil
+	}
+
 	heap.Push(book.entries, entry)
 
 	book.hashMap[cid.String()] = entry

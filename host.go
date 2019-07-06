@@ -500,3 +500,46 @@ func (host *hostImpl) VerifyBucketSignature(ctx context.Context, privateKey crab
 
 	return nil
 }
+
+func (host *hostImpl) SyncBucket(ctx context.Context, bucketAddr string) error {
+	getOrCreateBook := func() (interfaces.EntryBook, error) {
+		host.bucketBooksMutex.Lock()
+		defer host.bucketBooksMutex.Unlock()
+
+		book, prs := host.bucketBooks[bucketAddr]
+		if !prs {
+			var err error
+			book, err = EntryBookNew()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		host.bucketBooks[bucketAddr] = book
+
+		return book, nil
+	}
+
+	_, err := getOrCreateBook()
+	if err != nil {
+		return err
+	}
+
+	// TODO: use pubsub to fetch data
+	// TODO: verify entries signatures
+
+	return nil
+}
+
+func (host *hostImpl) GetBucketBook(ctx context.Context, bucketAddr string) (interfaces.EntryBook, error) {
+	host.bucketBooksMutex.Lock()
+	defer host.bucketBooksMutex.Unlock()
+
+	book, prs := host.bucketBooks[bucketAddr]
+
+	if !prs {
+		return nil, ErrBucketUnkown
+	}
+
+	return book, nil
+}
