@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-cid"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
@@ -150,27 +149,27 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		localOffset = fetcher.offset - blockMeta.Start
 	}
 
-	cid, _ := cid.Cast(blockMeta.Cid)
-	block, err := fetcher.fs.Blockstore().Get(cid)
-	if err == nil {
-		plainData, err := fetcher.getDataFromBlock(blockMeta, block)
-		if err != nil {
-			return 0, err
-		}
-		fetcher.buffer.Write(plainData[localOffset:])
+	// cid, _ := cid.Cast(blockMeta.Cid)
+	// block, err := fetcher.fs.Blockstore().Get(cid)
+	// if err == nil {
+	// 	plainData, err := fetcher.getDataFromBlock(blockMeta, block)
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
+	// 	fetcher.buffer.Write(plainData[localOffset:])
 
-		n, err := fetcher.buffer.Read(pLimit)
-		if err != nil {
-			return 0, err
-		}
+	// 	n, err := fetcher.buffer.Read(pLimit)
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
 
-		fetcher.offset += int64(n)
+	// 	fetcher.offset += int64(n)
 
-		return n, err
-	}
+	// 	return n, err
+	// }
 
 	// TODO: improvement: fetch-ahead blocks
-	block, err = fetcher.downloadBlock(blockMeta)
+	block, err := fetcher.downloadBlock(blockMeta)
 	if err != nil {
 		return 0, err
 	}
@@ -191,47 +190,6 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 }
 
 func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.Block, error) {
-	ctx, cancel := context.WithCancel(fetcher.ctx)
-	defer cancel()
-
-	ch := fetcher.fs.Host().FindProviders(ctx, blockMeta)
-	for peer := range ch {
-
-		buffer := &bytes.Buffer{}
-
-		stream, err := fetcher.fs.Host().CreateBlockStream(fetcher.ctx, blockMeta, &peer)
-		if err != nil {
-			// return nil, err
-			// Could not create stream, try the next peer
-			continue
-		}
-
-		_, err = io.CopyN(buffer, stream, blockMeta.Size)
-		if err != nil {
-			// return nil, err
-			// Short read, try the next peer
-			continue
-		}
-
-		block := blocks.NewBlock(buffer.Bytes())
-
-		cid, _ := cid.Cast(blockMeta.Cid)
-		if !block.Cid().Equals(cid) {
-			// We have received invalid data, try the next peer
-			continue
-		}
-
-		if err := fetcher.fs.Blockstore().Put(block); err != nil {
-			return nil, err
-		}
-
-		if err := fetcher.fs.Host().Provide(fetcher.ctx, cid); err != nil {
-			return nil, err
-		}
-
-		return block, nil
-	}
-
 	return nil, ErrBlockNotFound
 }
 

@@ -5,9 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
-	"strings"
+	"sync"
 	"time"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
@@ -15,7 +16,6 @@ import (
 	"github.com/runletapp/crabfs/options"
 	pb "github.com/runletapp/crabfs/protos"
 
-	"github.com/GustavoKatel/asyncutils/executor"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	blocks "github.com/ipfs/go-block-format"
@@ -29,8 +29,9 @@ import (
 	ipfsRepo "github.com/ipfs/go-ipfs/repo"
 	ipfsFSRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	ipfsCoreApiIface "github.com/ipfs/interface-go-ipfs-core"
-	libp2pNet "github.com/libp2p/go-libp2p-net"
+	ipfsPath "github.com/ipfs/interface-go-ipfs-core/path"
 	libp2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
+	cache "github.com/patrickmn/go-cache"
 )
 
 var _ interfaces.Host = &hostImpl{}
@@ -41,31 +42,27 @@ const (
 )
 
 type hostImpl struct {
-	settings    *options.Settings
-	addressBook interfaces.AddressBook
+	settings *options.Settings
+
+	bucketBooks      map[string]interfaces.EntryBook
+	bucketBooksMutex sync.RWMutex
+
+	bucketCache *cache.Cache
 
 	node *ipfsCore.IpfsNode
 	api  ipfsCoreApiIface.CoreAPI
 	repo ipfsRepo.Repo
-
-	provideWorker executor.Executor
 }
 
 // HostNew creates a new host
-func HostNew(settings *options.Settings, addressBook interfaces.AddressBook) (interfaces.Host, error) {
-	provideWorker, err := executor.NewDefaultExecutorContext(settings.Context, 4)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := provideWorker.Start(); err != nil {
-		return nil, err
-	}
-
+func HostNew(settings *options.Settings) (interfaces.Host, error) {
 	newHost := &hostImpl{
-		settings:      settings,
-		addressBook:   addressBook,
-		provideWorker: provideWorker,
+		settings: settings,
+
+		bucketBooks:      map[string]interfaces.EntryBook{},
+		bucketBooksMutex: sync.RWMutex{},
+
+		bucketCache: cache.New(5*time.Minute, 5*time.Minute),
 	}
 
 	ipfsRoot := path.Join(settings.Root, "ipfs")
@@ -200,91 +197,6 @@ func (host *hostImpl) PutBlock(ctx context.Context, block blocks.Block) (cid.Cid
 	return stat.Path().Cid(), nil
 }
 
-func (host *hostImpl) PutPublicKey(publicKey crabfsCrypto.PubKey) error {
-	publicKeyData, err := publicKey.Marshal()
-	if err != nil {
-		return err
-	}
-
-	return host.dhtPutValue(host.settings.Context, fmt.Sprintf("/crabfs_pk/%s", publicKey.HashString()), publicKeyData)
-}
-
-func (host *hostImpl) handleStreamV1(stream libp2pNet.Stream) {
-	defer stream.Close()
-
-	// data, err := ioutil.ReadAll(stream)
-	// if err != nil {
-	// 	return
-	// }
-
-	// var request pb.BlockStreamRequest
-	// if err := proto.Unmarshal(data, &request); err != nil {
-	// 	return
-	// }
-
-	// cid, err := cid.Cast(request.Cid)
-	// if err != nil {
-	// 	return
-	// }
-
-	// block, err := host.blockstore.Get(cid)
-	// if err != nil {
-	// 	return
-	// }
-
-	// _, err = stream.Write(block.RawData())
-	// if err != nil {
-	// 	return
-	// }
-}
-
-func (host *hostImpl) Reprovide(ctx context.Context, withBlocks bool) error {
-	// query := ipfsDatastoreQuery.Query{
-	// 	Prefix: "/crabfs/",
-	// }
-
-	// results, err := host.ds.Query(query)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for result := range results.Next() {
-	// 	var record pb.DHTNameRecord
-	// 	if err := proto.Unmarshal(result.Value, &record); err != nil {
-	// 		// Invalid key, do not reprovide it
-	// 		continue
-	// 	}
-	// 	object, err := host.xObjectFromRecord(&record)
-	// 	if err != nil {
-	// 		// Invalid key, do not reprovide it
-	// 		continue
-	// 	}
-
-	// 	if host.isObjectLocked(object) {
-	// 		// Do not reprovide locked objects
-	// 		continue
-	// 	}
-
-	// 	host.dhtPutValue(ctx, result.Key, result.Value)
-	// }
-
-	// if withBlocks {
-	// 	ch, err := host.blockstore.AllKeysChan(ctx)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	for cid := range ch {
-	// 		_cid := cid
-	// 		host.provideWorker.PostJob(func(ctx context.Context) error {
-	// 			return host.Provide(ctx, _cid)
-	// 		})
-	// 	}
-	// }
-
-	return nil
-}
-
 func (host *hostImpl) GetID() string {
 	return host.node.PeerHost.ID().Pretty()
 }
@@ -319,22 +231,56 @@ func (host *hostImpl) GetSwarmPublicKey(ctx context.Context, hash string) (crabf
 	// return pk, nil
 }
 
-func (host *hostImpl) dbAppend(ctx context.Context, bucket string, entry *pb.CrabEntry) error {
-	return fmt.Errorf("TODO")
+func (host *hostImpl) CreateBucket(ctx context.Context, name string, privateKey crabfsCrypto.PrivKey) (string, *pb.CrabBucket, error) {
+	bucket := &pb.CrabBucket{
+		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		Name:      name,
+	}
+
+	bucketData, err := proto.Marshal(bucket)
+	if err != nil {
+		return "", nil, err
+	}
+
+	signature, err := privateKey.Sign(bucketData)
+	if err != nil {
+		return "", nil, err
+	}
+
+	bucket.Signature = signature
+
+	bucketJSON, err := proto.Marshal(bucket)
+	if err != nil {
+		return "", nil, err
+	}
+
+	nd, err := host.api.Object().New(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+
+	resolved, err := host.api.Object().SetData(ctx, ipfsPath.IpfsPath(nd.Cid()), bytes.NewReader(bucketJSON))
+	if err != nil {
+		return "", nil, err
+	}
+
+	entries, err := EntryBookNew()
+	if err != nil {
+		return "", nil, err
+	}
+
+	bucketRoot := resolved.Cid().String()
+
+	host.bucketBooksMutex.Lock()
+	host.bucketBooks[bucketRoot] = entries
+	host.bucketBooksMutex.Unlock()
+
+	host.bucketCache.SetDefault(bucketRoot, bucket)
+
+	return bucketRoot, bucket, nil
 }
 
-func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto.PrivKey, object *pb.CrabObject, bucket string) error {
-	entry := &pb.CrabEntry{
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-	}
-
-	data, err := proto.Marshal(object)
-	if err != nil {
-		return err
-	}
-
-	entry.Data = data
-
+func (host *hostImpl) BucketAppend(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucketRoot string, entry *pb.CrabEntry) error {
 	entryData, err := proto.Marshal(entry)
 	if err != nil {
 		return err
@@ -347,126 +293,31 @@ func (host *hostImpl) publishObject(ctx context.Context, privateKey crabfsCrypto
 
 	entry.Signature = signature
 
-	return host.dbAppend(ctx, bucket, entry)
-}
-
-func (host *hostImpl) Publish(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) error {
-	bucketFilename := path.Join(bucket, filename)
-
-	publicKeyHash := privateKey.GetPublic().HashString()
-
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
-
-	object := &pb.CrabObject{
-		Name:   key,
-		Blocks: blockMap,
-		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
-		Size:   size,
-		Key:    cipherKey,
-		Delete: false,
-		Lock:   nil,
-	}
-
-	return host.publishObject(ctx, privateKey, object, bucket)
-}
-
-func (host *hostImpl) PublishAndLock(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64) (*pb.LockToken, error) {
-	token, err := host.generateLockToken()
+	entryJSON, err := proto.Marshal(entry)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	tokenData, err := proto.Marshal(token)
+	nd, err := host.api.Object().New(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	bucketFilename := path.Join(bucket, filename)
-
-	publicKeyHash := privateKey.GetPublic().HashString()
-
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
-
-	object := &pb.CrabObject{
-		Name:   key,
-		Blocks: blockMap,
-		Mtime:  mtime.UTC().Format(time.RFC3339Nano),
-		Size:   size,
-		Key:    cipherKey,
-		Delete: false,
-		Lock:   tokenData,
+	resolved, err := host.api.Object().AppendData(ctx, ipfsPath.IpfsPath(nd.Cid()), bytes.NewReader(entryJSON))
+	if err != nil {
+		return err
 	}
 
-	if err := host.publishObject(ctx, privateKey, object, bucket); err != nil {
-		return nil, err
+	resolved, err = host.api.Object().AddLink(ctx, resolved, "root", ipfsPath.New(bucketRoot))
+	if err != nil {
+		return err
 	}
 
-	return token, nil
-}
+	host.bucketBooksMutex.RLock()
+	defer host.bucketBooksMutex.RUnlock()
 
-func (host *hostImpl) PublishWithCacheTTL(ctx context.Context, privateKey crabfsCrypto.PrivKey, cipherKey []byte, bucket string, filename string, blockMap interfaces.BlockMap, mtime time.Time, size int64, ttl uint64) error {
-	bucketFilename := path.Join(bucket, filename)
-
-	publicKeyHash := privateKey.GetPublic().HashString()
-
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
-
-	object := &pb.CrabObject{
-		Name:     key,
-		Blocks:   blockMap,
-		Mtime:    mtime.UTC().Format(time.RFC3339Nano),
-		Size:     size,
-		Key:      cipherKey,
-		Delete:   false,
-		Lock:     nil,
-		CacheTTL: ttl,
-	}
-
-	return host.publishObject(ctx, privateKey, object, bucket)
-}
-
-func (host *hostImpl) Provide(ctx context.Context, cid cid.Cid) error {
-	// if host.dht.RoutingTable().Size() > 0 {
-	// 	return host.dht.Provide(ctx, cid, true)
-	// }
-
-	return nil
-}
-
-func (host *hostImpl) dhtPutValue(ctx context.Context, key string, value []byte) error {
-	// if err := host.ds.Put(ipfsDatastore.NewKey(key), value); err != nil {
-	// 	return err
-	// }
-
-	// if host.dht.RoutingTable().Size() > 0 {
-	// 	return host.dht.PutValue(ctx, key, value)
-	// }
-
-	return nil
-}
-
-func (host *hostImpl) xObjectFromRecord(record *pb.CrabEntry) (*pb.CrabObject, error) {
-	var object pb.CrabObject
-	if err := proto.Unmarshal(record.Data, &object); err != nil {
-		return nil, err
-	}
-
-	return &object, nil
-}
-
-func (host *hostImpl) getCache(ctx context.Context, key string) *time.Time {
-	// cacheData, err := host.ds.Get(ipfsDatastore.NewKey(key))
-	// if err != nil {
-	// 	return nil
-	// }
-
-	// cache, err := time.Parse(time.RFC3339Nano, string(cacheData))
-	// if err != nil {
-	// 	return nil
-	// }
-
-	// return &cache
-	return nil
+	book := host.bucketBooks[bucketRoot]
+	return book.Add(resolved.Cid(), entry)
 }
 
 func (host *hostImpl) get(ctx context.Context, publicKey crabfsCrypto.PubKey, bucket string, filename string) (*pb.CrabEntry, *pb.CrabObject, error) {
@@ -562,60 +413,6 @@ func (host *hostImpl) IsLocked(ctx context.Context, publicKey crabfsCrypto.PubKe
 	return host.isObjectLocked(object), nil
 }
 
-func (host *hostImpl) Lock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) (*pb.LockToken, error) {
-	_, object, err := host.get(ctx, privateKey.GetPublic(), bucket, filename)
-	if err != nil {
-		return nil, err
-	}
-
-	if object.Lock != nil {
-		// TODO: future work, store peer id in the lock and check if it's still alive,
-		// otherwise release the lock
-		return nil, ErrFileLocked
-	}
-
-	token, err := host.generateLockToken()
-	if err != nil {
-		return nil, err
-	}
-
-	tokenData, err := proto.Marshal(token)
-	if err != nil {
-		return nil, err
-	}
-
-	object.Lock = tokenData
-
-	if err := host.publishObject(ctx, privateKey, object, bucket); err != nil {
-		return nil, err
-	}
-
-	return token, nil
-}
-
-func (host *hostImpl) Unlock(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string, token *pb.LockToken) error {
-	_, object, err := host.get(ctx, privateKey.GetPublic(), bucket, filename)
-	if err != nil {
-		return err
-	}
-
-	if object.Lock == nil {
-		return nil
-	}
-
-	var lock pb.LockToken
-	if err := proto.Unmarshal(object.Lock, &lock); err != nil {
-		return err
-	}
-
-	if strings.Compare(lock.Token, token.Token) != 0 {
-		return ErrFileLockedNotOwned
-	}
-
-	object.Lock = nil
-	return host.publishObject(ctx, privateKey, object, bucket)
-}
-
 func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.BlockMetadata, peer *libp2pPeerstore.PeerInfo) (io.Reader, error) {
 	return nil, fmt.Errorf("TODO")
 	// circuitAddr, err := multiaddr.NewMultiaddr("/p2p-circuit/p2p/" + peer.ID.Pretty())
@@ -649,21 +446,57 @@ func (host *hostImpl) CreateBlockStream(ctx context.Context, blockMeta *pb.Block
 	// return stream, stream.Close()
 }
 
-func (host *hostImpl) Remove(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucket string, filename string) error {
-	bucketFilename := path.Join(bucket, filename)
-
-	publicKeyHash := privateKey.GetPublic().HashString()
-
-	key := KeyFromFilename(publicKeyHash, bucketFilename)
-
-	object := &pb.CrabObject{
-		Name:   key,
-		Blocks: map[int64]*pb.BlockMetadata{},
-		Mtime:  time.Now().UTC().Format(time.RFC3339Nano),
-		Size:   0,
-		Key:    []byte{},
-		Delete: true,
+func (host *hostImpl) getIpldData(ctx context.Context, path ipfsPath.Path) (io.Reader, error) {
+	node, err := host.api.Object().Get(ctx, path)
+	if err != nil {
+		return nil, err
 	}
 
-	return host.publishObject(ctx, privateKey, object, bucket)
+	return bytes.NewReader(node.RawData()), nil
+}
+
+func (host *hostImpl) VerifyBucketSignature(ctx context.Context, privateKey crabfsCrypto.PrivKey, bucketAddr string) error {
+	var bucket pb.CrabBucket
+
+	bucketI, prs := host.bucketCache.Get(bucketAddr)
+	if !prs {
+		r, err := host.getIpldData(ctx, ipfsPath.New(bucketAddr))
+		if err != nil {
+			return err
+		}
+
+		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+
+		if err := proto.Unmarshal(data, &bucket); err != nil {
+			return err
+		}
+	} else {
+		bucket = *(bucketI.(*pb.CrabBucket))
+	}
+
+	host.bucketCache.SetDefault(bucketAddr, &bucket)
+
+	verifyBucket := pb.CrabBucket{
+		CreatedAt: bucket.CreatedAt,
+		Name:      bucket.Name,
+	}
+
+	data, err := proto.Marshal(&verifyBucket)
+	if err != nil {
+		return err
+	}
+
+	v, err := privateKey.GetPublic().Verify(data, bucket.Signature)
+	if err != nil {
+		return err
+	}
+
+	if !v {
+		return ErrBucketInvalidPrivateKey
+	}
+
+	return nil
 }

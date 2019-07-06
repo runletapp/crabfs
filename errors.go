@@ -26,4 +26,13 @@ var (
 
 	// ErrFileLockedNotOwned the requested file is not locked by this peer
 	ErrFileLockedNotOwned = errors.New("Request file is not locked by this peer")
+
+	// ErrBucketAlreadyExists a bucket with the same name already exists in the current address book
+	ErrBucketAlreadyExists = errors.New("Bucket already exists in local address book")
+
+	// ErrBucketUnkown the requested bucket is not known
+	ErrBucketUnkown = errors.New("Unkown bucket requested")
+
+	// ErrBucketInvalidPrivateKey the requested bucket does not verify with the supplied private key
+	ErrBucketInvalidPrivateKey = errors.New("the requested bucket does not verify with the supplied private key")
 )

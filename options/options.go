@@ -2,7 +2,6 @@ package options
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/runletapp/crabfs/identity"
@@ -20,8 +19,6 @@ type Settings struct {
 	BlockSize int64
 
 	Root string
-
-	BucketAddress map[string]string
 
 	Identity identity.Identity
 }
@@ -43,8 +40,6 @@ func (s *Settings) SetDefaults() error {
 	s.BlockSize = 100 * 1024
 
 	s.Root = ""
-
-	s.BucketAddress = map[string]string{}
 
 	// Defaults to create a new one
 	s.Identity = nil
@@ -125,26 +120,6 @@ func IdentityFromReader(r io.Reader) Option {
 		}
 
 		s.Identity = id
-		return nil
-	}
-}
-
-// AddBucketAddress adds a bucket address to the current AddressBook
-func AddBucketAddress(name string, address string) Option {
-	return func(s *Settings) error {
-		s.BucketAddress[name] = address
-		return nil
-	}
-}
-
-// AddressBook override the address book
-func AddressBook(book map[string]string) Option {
-	return func(s *Settings) error {
-		if book == nil {
-			return fmt.Errorf("Invalid address book: %v", book)
-		}
-
-		s.BucketAddress = book
 		return nil
 	}
 }

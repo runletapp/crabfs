@@ -98,6 +98,7 @@ func writer(ctx context.Context, fs interfaces.Bucket, filename string) {
 
 func main() {
 	outputFile := flag.String("o", "", "Output file")
+	bucketAddr := flag.String("b", "", "bucket address")
 	privateKeyFile := flag.String("p", "", "Private key file")
 	mountLocation := flag.String("m", "tmp/mount", "mount location")
 	readFile := flag.String("q", "", "read file")
@@ -142,7 +143,17 @@ func main() {
 	}
 
 	fs := nodeStart(ctx, *mountLocation)
-	bucket, err := fs.WithBucket(psk, "exampleBkt")
+
+	if *bucketAddr == "" {
+		addr, _, err := fs.Host().CreateBucket(ctx, "test", psk)
+		if err != nil {
+			panic(err)
+		}
+		log.Printf("Created bucket: %v", addr)
+		*bucketAddr = addr
+	}
+
+	bucket, err := fs.WithBucketFiles(ctx, psk, *bucketAddr)
 	if err != nil {
 		panic(err)
 	}

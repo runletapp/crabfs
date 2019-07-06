@@ -6,6 +6,12 @@ message LockToken {
     string token = 1;
 }
 
+message CrabBucket {
+    string createdAt = 1;
+    string name = 2;
+    bytes signature = 3;
+}
+
 message CrabEntry {
     string timestamp = 1;
     bytes data = 2;
