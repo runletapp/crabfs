@@ -1,0 +1,20 @@
+{
+  "name": "crabfs-crypto",
+  "version": "0.1.1",
+  "description": "Crypto helpers to be used in javascript",
+  "main": "build/index.js",
+  "repository": "github.com/runletapp/crabfs",
+  "author": "GustavoKatel",
+  "license": "MIT",
+  "scripts": {
+    "generate:protos": "bash ./tools/buildProtos.sh",
+    "build": "tsc --build ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/google-protobuf": "^3.2.7",
+    "@types/node": "^12.0.3",
+    "grpc-tools": "^1.7.3",
+    "grpc_tools_node_protoc_ts": "^2.5.1",
+    "typescript": "^3.5.1"
+  }
+}

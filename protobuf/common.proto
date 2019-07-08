@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package protos;
+
+message LockToken {
+    string token = 1;
+}
+
+message DHTNameRecord {
+    string timestamp = 1;
+    bytes data = 2;
+    bytes signature = 3;
+}
+
+message BlockMetadata {
+    bytes cid = 1;
+    int64 start = 2;
+    int64 size = 3;
+    int64 paddingStart = 4;
+}
+
+message CrabObject {
+    map<int64, BlockMetadata> blocks = 1;
+    string mtime = 2;
+    int64 size = 3;
+    bytes key = 4;
+    bool delete = 5;
+    bytes lock = 6;
+    uint64 cacheTTL = 7; // seconds
+}
+
+message BlockStreamRequest {
+    bytes cid = 1;
+}
+
+message Identity {
+    bytes privKey = 1;
+}

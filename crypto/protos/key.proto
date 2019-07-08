@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package protos;
+
+message Key {
+    enum Format {
+        x509 = 0;
+    };
+
+    Format format = 1;
+    bytes data = 2;
+}
