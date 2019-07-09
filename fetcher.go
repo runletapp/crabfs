@@ -6,16 +6,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"io"
+	"io/ioutil"
 	"os"
 	"sort"
-	"sync"
-
-	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-cid"
 
 	crabfsCrypto "github.com/runletapp/crabfs/crypto"
 	"github.com/runletapp/crabfs/interfaces"
 	pb "github.com/runletapp/crabfs/protos"
+
+	"github.com/ipfs/go-cid"
+	ipfsPath "github.com/ipfs/interface-go-ipfs-core/path"
 )
 
 var _ interfaces.Fetcher = &BasicFetcher{}
@@ -36,8 +36,6 @@ type BasicFetcher struct {
 	blockMap interfaces.BlockMap
 
 	fs interfaces.Core
-
-	locker sync.Locker
 
 	privateKey crabfsCrypto.PrivKey
 
@@ -106,9 +104,7 @@ func (fetcher *BasicFetcher) getNextIndex(offset int64) int64 {
 	return currentIndex
 }
 
-func (fetcher *BasicFetcher) getDataFromBlock(meta *pb.BlockMetadata, block blocks.Block) ([]byte, error) {
-	data := make([]byte, len(block.RawData()))
-	copy(data, block.RawData())
+func (fetcher *BasicFetcher) getDataFromBlock(meta *pb.BlockMetadata, data []byte) ([]byte, error) {
 	fetcher.cipher.Decrypt(data, data)
 
 	return data[:int(meta.PaddingStart)], nil
@@ -150,27 +146,8 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 		localOffset = fetcher.offset - blockMeta.Start
 	}
 
-	cid, _ := cid.Cast(blockMeta.Cid)
-	block, err := fetcher.fs.Blockstore().Get(cid)
-	if err == nil {
-		plainData, err := fetcher.getDataFromBlock(blockMeta, block)
-		if err != nil {
-			return 0, err
-		}
-		fetcher.buffer.Write(plainData[localOffset:])
-
-		n, err := fetcher.buffer.Read(pLimit)
-		if err != nil {
-			return 0, err
-		}
-
-		fetcher.offset += int64(n)
-
-		return n, err
-	}
-
 	// TODO: improvement: fetch-ahead blocks
-	block, err = fetcher.downloadBlock(blockMeta)
+	block, err := fetcher.downloadBlock(blockMeta)
 	if err != nil {
 		return 0, err
 	}
@@ -190,49 +167,23 @@ func (fetcher *BasicFetcher) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) (blocks.Block, error) {
-	ctx, cancel := context.WithCancel(fetcher.ctx)
-	defer cancel()
-
-	ch := fetcher.fs.Host().FindProviders(ctx, blockMeta)
-	for peer := range ch {
-
-		buffer := &bytes.Buffer{}
-
-		stream, err := fetcher.fs.Host().CreateBlockStream(fetcher.ctx, blockMeta, &peer)
-		if err != nil {
-			// return nil, err
-			// Could not create stream, try the next peer
-			continue
-		}
-
-		_, err = io.CopyN(buffer, stream, blockMeta.Size)
-		if err != nil {
-			// return nil, err
-			// Short read, try the next peer
-			continue
-		}
-
-		block := blocks.NewBlock(buffer.Bytes())
-
-		cid, _ := cid.Cast(blockMeta.Cid)
-		if !block.Cid().Equals(cid) {
-			// We have received invalid data, try the next peer
-			continue
-		}
-
-		if err := fetcher.fs.Blockstore().Put(block); err != nil {
-			return nil, err
-		}
-
-		if err := fetcher.fs.Host().Provide(fetcher.ctx, cid); err != nil {
-			return nil, err
-		}
-
-		return block, nil
+func (fetcher *BasicFetcher) downloadBlock(blockMeta *pb.BlockMetadata) ([]byte, error) {
+	cid, err := cid.Cast(blockMeta.Cid)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, ErrBlockNotFound
+	r, err := fetcher.fs.Storage().Object().Data(fetcher.ctx, ipfsPath.IpfsPath(cid))
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (fetcher *BasicFetcher) Seek(offset int64, whence int) (int64, error) {
