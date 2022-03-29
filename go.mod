@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/GustavoKatel/asyncutils v0.0.3
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.1
 	github.com/google/uuid v1.1.1
@@ -25,5 +25,4 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/multiformats/go-multihash v0.0.5
 	github.com/stretchr/testify v1.3.0
-	google.golang.org/appengine v1.4.0 // indirect
 )
